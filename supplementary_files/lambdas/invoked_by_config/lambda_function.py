@@ -13,6 +13,7 @@ def async_sfn(*, SfnArn, Input: dict):
         print(f"ClientError\n{e}")
         raise
     else:
+        print(r)
         return r["executionArn"]
 
 def lambda_handler(event, context):
