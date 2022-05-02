@@ -7,22 +7,23 @@ from datetime import datetime
 sfn = boto3.client("stepfunctions")
 s3 = boto3.client("s3")
 
-def async_sfn(*, SfnArn, Input: dict):
+def async_sfn(*, sfn_arn, input: dict):
     try:
-        r = sfn.start_execution(stateMachineArn=SfnArn, input=json.dumps(Input))
+        r = sfn.start_execution(stateMachineArn=sfn_arn, input=json.dumps(input))
     except ClientError as e:
         print(f"ClientError\n{e}")
         raise
     else:
-        print(r)
+        print(f'no ClientError start_execution:\nsfn_arn:\n{sfn_arn}\ninput:\n{input}')
         return r["executionArn"]
 
-def put_object(*,Bucket,Key,Dict):
+def put_object(bucket,key,object_:dict):
+    print(f'put_object\nbucket:\n{bucket}\nKey:\n{key}')
     try:
         r = s3.put_object(
-            Bucket = Bucket,
-            Key = Key,
-            Body = json.dumps(Dict)
+            Bucket = bucket,
+            Key = key,
+            Body = json.dumps(object_)
         )
     except ClientError as e:
         print(f'ClientError:\n{e}')
@@ -69,9 +70,9 @@ def lambda_handler(event, context):
     key = f'{event["configRuleName"]}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
     
     if not put_object(
-        Bucket = config_event_payload_bucket,
-        Key = key,
-        Dict = event
+        bucket = config_event_payload_bucket,
+        key = key,
+        object_ = event
     ):
         return False
     
@@ -93,8 +94,8 @@ def lambda_handler(event, context):
     print(f'control_broker_consumer_inputs\n{control_broker_consumer_inputs}')
 
     processed = async_sfn(
-        SfnArn=os.environ["ConfigEventProcessingSfnArn"],
-        Input=control_broker_consumer_inputs
+        sfn_arn=os.environ["ConfigEventProcessingSfnArn"],
+        input=control_broker_consumer_inputs
     )
     
     print(f'processed by sfn:\n{processed}')
