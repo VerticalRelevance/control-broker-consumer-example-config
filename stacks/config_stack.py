@@ -20,8 +20,9 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
-        self.invoked_by_config()
         self.demo_change_tracked_by_config()
+        self.config_event_processing_sfn()
+        self.invoked_by_config()
     
     def demo_change_tracked_by_config(self):
         
@@ -37,48 +38,32 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             content_based_deduplication = False,
         )
     
-    
-    def invoked_by_config(self):
-        
-        self.invoked_by_config = aws_lambda.Function(
-            self,
-            f"InvokedByConfig",
-            code=aws_lambda.Code.from_asset(str(paths.LAMBDA_FUNCTIONS / 'invoked_by_config')),
-            handler='lambda_function.lambda_handler',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
-            environment=dict(
-                ProcessingSfnArn=self.sfn_config_event_processing.state_machine_arn
-            ),
-        )
-        # control_broker_statemachine.grant_start_execution(self.invoked_by_config)
-        # control_broker_statemachine.grant_start_sync_execution(self.invoked_by_config)
-
-        self.custom_config_rule = aws_config.CustomRule(
-            self,
-            "SQS-PoC",
-            rule_scope=aws_config.RuleScope.from_resources([
-                aws_config.ResourceType.SQS_QUEUE,
-            ]),
-            lambda_function=self.invoked_by_config,
-            configuration_changes=True,
-        )
-
     def config_event_processing_sfn(self):
         
-        log_group_inner_eval_engine_sfn = aws_logs.LogGroup(
+        log_group_config_event_processing_sfn = aws_logs.LogGroup(
             self,
             "ConfigEventProcessingSfnLogs",
             log_group_name=f"/aws/vendedlogs/states/ConfigEventProcessingSfnLogs",
             removal_policy=RemovalPolicy.DESTROY,
         )
 
-        self.role_inner_eval_engine_sfn = aws_iam.Role(
+        self.role_config_event_processing_sfn = aws_iam.Role(
             self,
             "ConfigEventProcessingSfn",
             assumed_by=aws_iam.ServicePrincipal("states.amazonaws.com"),
         )
+        # self.role_config_event_processing_sfn.add_to_policy(
+        #     aws_iam.PolicyStatement(
+        #         actions=["lambda:InvokeFunction"],
+        #         resources=[
+        #             "*"
+        #         ],
+        #     )
+        # )
+        
+        # log_group_config_event_processing_sfn.grant(self.role_config_event_processing_sfn)
 
-        self.role_inner_eval_engine_sfn.add_to_policy(
+        self.role_config_event_processing_sfn.add_to_policy(
             aws_iam.PolicyStatement(
                 actions=[
                     # "logs:*",
@@ -93,18 +78,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 ],
                 resources=[
                     "*",
-                    log_group_inner_eval_engine_sfn.log_group_arn,
-                    f"{log_group_inner_eval_engine_sfn.log_group_arn}*",
-                ],
-            )
-        )
-        self.role_inner_eval_engine_sfn.add_to_policy(
-            aws_iam.PolicyStatement(
-                actions=["lambda:InvokeFunction"],
-                resources=[
-                    self.lambda_opa_eval_python_subprocess.function_arn,
-                    self.lambda_gather_infractions.function_arn,
-                    self.lambda_handle_infraction.function_arn,
+                    log_group_config_event_processing_sfn.log_group_arn,
+                    f"{log_group_config_event_processing_sfn.log_group_arn}*",
                 ],
             )
         )
@@ -114,12 +89,12 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             "ConfigEventProcessing",
             state_machine_type="STANDARD",
             # state_machine_type="EXPRESS",
-            role_arn=self.role_inner_eval_engine_sfn.role_arn,
+            role_arn=self.role_config_event_processing_sfn.role_arn,
             logging_configuration=aws_stepfunctions.CfnStateMachine.LoggingConfigurationProperty(
                 destinations=[
                     aws_stepfunctions.CfnStateMachine.LogDestinationProperty(
                         cloud_watch_logs_log_group=aws_stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
-                            log_group_arn=log_group_inner_eval_engine_sfn.log_group_arn
+                            log_group_arn=log_group_config_event_processing_sfn.log_group_arn
                         )
                     )
                 ],
@@ -142,4 +117,27 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             ),
         )
 
-        self.sfn_config_event_processing.node.add_dependency(self.role_inner_eval_engine_sfn)
+        self.sfn_config_event_processing.node.add_dependency(self.role_config_event_processing_sfn)
+    
+    def invoked_by_config(self):
+        
+        self.invoked_by_config = aws_lambda.Function(
+            self,
+            f"InvokedByConfig",
+            code=aws_lambda.Code.from_asset(str(paths.LAMBDA_FUNCTIONS / 'invoked_by_config')),
+            handler='lambda_function.lambda_handler',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            environment=dict(
+                ConfigEventProcessingSfnArn=self.sfn_config_event_processing.attr_arn
+            ),
+        )
+
+        self.custom_config_rule = aws_config.CustomRule(
+            self,
+            "SQS-PoC",
+            rule_scope=aws_config.RuleScope.from_resources([
+                aws_config.ResourceType.SQS_QUEUE,
+            ]),
+            lambda_function=self.invoked_by_config,
+            configuration_changes=True,
+        )
