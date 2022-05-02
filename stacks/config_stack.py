@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_iam,
     aws_stepfunctions,
     aws_logs,
+    aws_s3,
     aws_lambda_python_alpha, #expirmental
 )
 from constructs import Construct
