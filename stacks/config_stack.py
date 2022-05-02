@@ -121,14 +121,16 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             "ConfigEventProcessingSfn",
             assumed_by=aws_iam.ServicePrincipal("states.amazonaws.com"),
         )
-        # self.role_config_event_processing_sfn.add_to_policy(
-        #     aws_iam.PolicyStatement(
-        #         actions=["lambda:InvokeFunction"],
-        #         resources=[
-        #             "*"
-        #         ],
-        #     )
-        # )
+        self.role_config_event_processing_sfn.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=["lambda:InvokeFunction"],
+                resources=[
+                    self.lambda_sign_apigw_request.function_arn,
+                    self.lambda_object_exists.function_arn,
+                    self.lambda_s3_select.function_arn,
+                ],
+            )
+        )
         
         # log_group_config_event_processing_sfn.grant(self.role_config_event_processing_sfn)
 
