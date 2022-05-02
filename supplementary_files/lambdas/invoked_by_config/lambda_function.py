@@ -47,7 +47,7 @@ def lambda_handler(event, context):
 
     # process
 
-    print(f'procesing sfn\n{os.environ["ProcessingSfnArn"]}')
+    print(f'procesing sfn\n{os.environ["ConfigEventProcessingSfnArn"]}')
     
     processing_sfn_input = {
         "Config":event
@@ -56,7 +56,7 @@ def lambda_handler(event, context):
     print(f'processing_sfn_input\n{processing_sfn_input}')
 
     processed = async_sfn(
-        SfnArn=os.environ["ProcessingSfnArn"],
+        SfnArn=os.environ["ConfigEventProcessingSfnArn"],
         Input=processing_sfn_input
     )
     
