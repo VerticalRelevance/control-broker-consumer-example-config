@@ -5,25 +5,6 @@ from botocore.exceptions import ClientError
 from datetime import datetime
 
 sfn = boto3.client("stepfunctions")
-config = boto3.client("config")
-
-
-def sync_sfn(*, SfnArn, Input: dict):
-    try:
-        r = sfn.start_sync_execution(stateMachineArn=SfnArn, input=json.dumps(Input))
-    except ClientError as e:
-        print(f"ClientError\n{e}")
-        raise
-    else:
-        print(r)
-        if r["status"] != "SUCCEEDED":
-            print(f"ProcessingSfn Status not SUCCEEDED")
-            return False
-        else:
-            output = r["output"]
-            print(f"output:\n{output}\n{type(output)}")
-            return output
-
 
 def async_sfn(*, SfnArn, Input: dict):
     try:
@@ -33,68 +14,6 @@ def async_sfn(*, SfnArn, Input: dict):
         raise
     else:
         return r["executionArn"]
-
-
-class ConfigCompliance:
-    def __init__(self, *, ResourceType, ResourceId, ResultToken, Compliant):
-
-        self.resource_type = ResourceType
-        self.resource_id = ResourceId
-        self.result_token = ResultToken
-        self.compliant = Compliant
-
-    def evaluate_compliant(self):
-        print(
-            f"begin put_evaluations COMPLIANT\n{self.resource_type}\n{self.resource_id}"
-        )
-        try:
-            r = config.put_evaluations(
-                Evaluations=[
-                    {
-                        "ComplianceResourceType": self.resource_type,
-                        "ComplianceResourceId": self.resource_id,
-                        "ComplianceType": "COMPLIANT",
-                        # 'Annotation': 'string',
-                        "OrderingTimestamp": datetime(2015, 1, 1),  # FIXME
-                    },
-                ],
-                ResultToken=self.result_token,
-            )
-        except ClientError as e:
-            print(f"ClientError\n{e}")
-            raise
-        else:
-            return True
-
-    def evaluate_noncompliant(self):
-        print(
-            f"begin put_evaluations NON_COMPLIANT\n{self.resource_type}\n{self.resource_id}"
-        )
-        try:
-            r = config.put_evaluations(
-                Evaluations=[
-                    {
-                        "ComplianceResourceType": self.resource_type,
-                        "ComplianceResourceId": self.resource_id,
-                        "ComplianceType": "NON_COMPLIANT",
-                        # 'Annotation': 'string',
-                        "OrderingTimestamp": datetime(2015, 1, 1),  # FIXME
-                    },
-                ],
-                ResultToken=self.result_token,
-            )
-        except ClientError as e:
-            print(f"ClientError\n{e}")
-            raise
-        else:
-            return True
-
-    def main(self):
-        if self.compliant:
-            self.evaluate_compliant()
-        else:
-            self.evaluate_noncompliant()
-
 
 def lambda_handler(event, context):
 
@@ -126,15 +45,21 @@ def lambda_handler(event, context):
     result_token = event["resultToken"]
     print(f"result_token:\n{result_token}")
 
-    processed = sync_sfn(SfnArn=os.environ["ProcessingSfnArn"], Input={"Config": event})
-    print(f"processed:\n{processed}")
+    # process
 
-    # return to Config compliance status - let Config notify
+    print(f'procesing sfn\n{os.environ["ProcessingSfnArn"]}')
+    
+    processing_sfn_input = {
+        "Config":event
+    }
+    
+    print(f'processing_sfn_input\n{processing_sfn_input}')
 
-    c = ConfigCompliance(
-        ResourceType=resource_type,
-        ResourceId=resource_id,
-        ResultToken=result_token,
-        Compliant=bool(processed),
+    processed = async_sfn(
+        SfnArn=os.environ["ProcessingSfnArn"],
+        Input=processing_sfn_input
     )
-    c.main()
+    
+    print(f'processed by sfn:\n{processed}')
+    
+    return True
