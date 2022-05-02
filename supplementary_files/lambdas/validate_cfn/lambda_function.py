@@ -41,10 +41,7 @@ def validate_cfn(*,S3Uri):
         )
     except ClientError as e:
         print(f'ClientError:\n{e}')
-        raise
-    # except cfn.exceptions.TemplateValidationError as e:
-    #     print(f'TemplateValidationError:\n{e}')
-    #     return False
+        return False
     else:
         print(r)
         return True
@@ -53,6 +50,9 @@ def lambda_handler(event, context):
     
     print(event)
     
-    validate_cfn(
+    validity = validate_cfn(
         S3Uri = event['CloudFormationTemplate']['S3Uri']
     )
+    
+    print(f'validity:\n{validity}')
+    return validity
