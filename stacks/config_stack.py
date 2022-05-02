@@ -28,6 +28,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         self.control_broker_apigw_url = control_broker_apigw_url
         
         self.demo_change_tracked_by_config()
+        self.utils()
         self.config_event_processing_sfn_lambdas()
         self.config_event_processing_sfn()
         self.invoked_by_config()
@@ -46,6 +47,16 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             content_based_deduplication = False,
         )
     
+    def utils(self):
+        
+        self.bucket_config_event_payloads = aws_s3.Bucket(
+            self,
+            "ConfigEventPayloads",
+            block_public_access=aws_s3.BlockPublicAccess.BLOCK_ALL,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+        )
+    
     def config_event_processing_sfn_lambdas(self):
 
         # sign apigw request
@@ -60,7 +71,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             timeout=Duration.seconds(60),
             memory_size=1024,
             environment = {
-                "ApigwInvokeUrl" : self.control_broker_apigw_url
+                "ApigwInvokeUrl" : self.control_broker_apigw_url,
+                "ConfigEventPayloadsBucket": self.bucket_config_event_payloads.bucket_name
             },
             layers=[
                 aws_lambda_python_alpha.PythonLayerVersion(

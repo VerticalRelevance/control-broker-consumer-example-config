@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from datetime import datetime
 
 sfn = boto3.client("stepfunctions")
+s3 = boto3.client("s3")
 
 def async_sfn(*, SfnArn, Input: dict):
     try:
@@ -15,6 +16,19 @@ def async_sfn(*, SfnArn, Input: dict):
     else:
         print(r)
         return r["executionArn"]
+
+def put_object(*,Bucket,Key,Dict):
+    try:
+        r = s3.put_object(
+            Bucket = Bucket,
+            Key = Key,
+            Body = json.dumps(Dict)
+        )
+    except ClientError as e:
+        print(f'ClientError:\n{e}')
+        raise
+    else:
+        return True
 
 def lambda_handler(event, context):
 
@@ -47,18 +61,40 @@ def lambda_handler(event, context):
     print(f"result_token:\n{result_token}")
 
     # process
+    
+    config_event_payload_bucket = os.environ["ConfigEventPayloadsBucket"]
 
     print(f'procesing sfn\n{os.environ["ConfigEventProcessingSfnArn"]}')
     
-    processing_sfn_input = {
-        "Config":event
+    key = f'{event["configRuleName"]}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
+    
+    if not put_object(
+        Bucket = config_event_payload_bucket,
+        Key = key,
+        Dict = event
+    ):
+        return False
+    
+    config_event_metadata = {
+        "ResourceType":resource_type,
+        "ResourceId":resource_id,
+        "ConfigResultToken":result_token
     }
     
-    print(f'processing_sfn_input\n{processing_sfn_input}')
+    control_broker_consumer_inputs = {
+        "ControlBrokerConsumerInputs":{
+            "InputType":"ConfigEvent",
+            "Bucket": config_event_payload_bucket,
+            "InputKeys":[key],
+            "ConsumerMetadata": config_event_metadata,
+        }
+    }
+    
+    print(f'control_broker_consumer_inputs\n{control_broker_consumer_inputs}')
 
     processed = async_sfn(
         SfnArn=os.environ["ConfigEventProcessingSfnArn"],
-        Input=processing_sfn_input
+        Input=control_broker_consumer_inputs
     )
     
     print(f'processed by sfn:\n{processed}')
