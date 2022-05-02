@@ -27,6 +27,7 @@
     "@aws-cdk/core:target-partitions": [
       "aws",
       "aws-cn"
-    ]
+    ],
+    "control-broker/apigw-url":"https://2dfj0k4ai4.execute-api.us-east-1.amazonaws.com/"
   }
 }

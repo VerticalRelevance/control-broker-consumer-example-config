@@ -18,11 +18,17 @@ from utils import paths
 
 class ControlBrokerConsumerExampleConfigStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self,
+        scope: Construct,
+        construct_id: str,
+        control_broker_apigw_url:str,
+        **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
+        self.control_broker_apigw_url = control_broker_apigw_url
+        
         self.demo_change_tracked_by_config()
-        self.config_event_processing_sfn_lambdas():
+        self.config_event_processing_sfn_lambdas()
         self.config_event_processing_sfn()
         self.invoked_by_config()
     
@@ -36,8 +42,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             self,
             "DemoChangeTrackedByConfig",
             fifo = True,
-            content_based_deduplication = True,
-            # content_based_deduplication = False,
+            # content_based_deduplication = True,
+            content_based_deduplication = False,
         )
     
     def config_event_processing_sfn_lambdas(self):
@@ -166,18 +172,91 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 include_execution_data=True,
                 level="ALL",
             ),
-            definition_string=json.dumps(
-                {
-                    "StartAt": "ParseInput",
-                    "States": {
-                        "ParseInput": {
-                            "Type": "Pass",
-                            "End": True,
-                            "ResultPath": "$",
+            definition_string=json.dumps({
+                "StartAt": "SignApigwRequest",
+                "States": {
+                    "SignApigwRequest": {
+                        "Type": "Task",
+                        "Next": "CheckResultsReportExists",
+                        "ResultPath": "$.SignApigwRequest",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_sign_apigw_request.function_name,
+                            "Payload.$": "$"
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
                         },
                     },
+                    "CheckResultsReportExists": {
+                        "Type": "Task",
+                        "Next": "GetResultsReportIsCompliantBoolean",
+                        "ResultPath": "$.CheckResultsReportExists",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_object_exists.function_name,
+                            "Payload": {
+                                "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri"
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                        "Retry": [
+                            {
+                                "ErrorEquals": [
+                                    "ObjectDoesNotExistException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 6,
+                                "BackoffRate": 2.0
+                            }
+                        ],
+                        "Catch": [
+                            {
+                                "ErrorEquals":[
+                                    "States.ALL"
+                                ],
+                                "Next": "ResultsReportDoesNotYetExist"
+                            }
+                        ]
+                    },
+                    "ResultsReportDoesNotYetExist": {
+                        "Type":"Fail"
+                    },
+                    "GetResultsReportIsCompliantBoolean": {
+                        "Type": "Task",
+                        "Next": "ChoiceIsComplaint",
+                        "ResultPath": "$.GetResultsReportIsCompliantBoolean",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_s3_select.function_name,
+                            "Payload": {
+                                "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri",
+                                "Expression": "SELECT * from S3Object s",
+                            },
+                        },
+                        "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
+                    },
+                    "ChoiceIsComplaint": {
+                        "Type":"Choice",
+                        "Default":"CompliantFalse",
+                        "Choices":[
+                            {
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
+                                "BooleanEquals":True,
+                                "Next":"CompliantTrue"
+                            }
+                        ]
+                    },
+                    "CompliantTrue": {
+                        "Type":"Succeed"
+                    },
+                    "CompliantFalse": {
+                        "Type":"Fail"
+                    }
                 }
-            ),
+            }),
         )
 
         self.sfn_config_event_processing.node.add_dependency(self.role_config_event_processing_sfn)
