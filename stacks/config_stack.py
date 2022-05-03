@@ -285,7 +285,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             handler='lambda_function.lambda_handler',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             environment=dict(
-                ConfigEventProcessingSfnArn=self.sfn_config_event_processing.attr_arn
+                ConfigEventProcessingSfnArn=self.sfn_config_event_processing.attr_arn,
+                ConfigEventPayloadsBucket=self.bucket_config_event_payloads.bucket_name,
             ),
         )
         
