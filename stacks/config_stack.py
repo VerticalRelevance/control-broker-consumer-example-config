@@ -313,7 +313,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "PutEvaluationsNonCompliant": {
                         "Type": "Task",
-                        "Next": "Compliant",
+                        "Next": "NonCompliant",
                         "ResultPath": "$.PutEvaluationsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
