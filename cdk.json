@@ -28,7 +28,7 @@
       "aws",
       "aws-cn"
     ],
-    "control-broker/apigw-url":"https://1smkilqok6.execute-api.us-east-1.amazonaws.com/",
-    "control-broker/template-reader-arns":["arn:aws:iam::446960196218:role/ControlBrokerEvalEngineCd-OpaEvalPythonSubprocessS-UO1U0522P2DK"]
+    "control-broker/apigw-url":"https://pqiqclz4z1.execute-api.us-east-1.amazonaws.com/",
+    "control-broker/input-reader-arns":["arn:aws:iam::446960196218:role/ControlBrokerEvalEngineCd-EvaluateCloudFormationTe-NEOUF0G1AZ38", "arn:aws:iam::446960196218:role/ControlBrokerEvalEngineCd-PaCEvaluationRouterServi-IF5MPFOLS46M"]
   }
 }
