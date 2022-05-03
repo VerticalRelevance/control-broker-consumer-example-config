@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from aws_cdk import (
     Duration,
@@ -23,10 +24,12 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         scope: Construct,
         construct_id: str,
         control_broker_apigw_url:str,
+        control_broker_template_reader_arns:List[str],
         **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
         self.control_broker_apigw_url = control_broker_apigw_url
+        self.control_broker_template_reader_arns = control_broker_template_reader_arns
         
         self.demo_change_tracked_by_config()
         self.utils()
