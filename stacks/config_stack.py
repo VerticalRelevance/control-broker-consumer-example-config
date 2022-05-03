@@ -44,8 +44,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             self,
             "DemoChangeTrackedByConfig",
             fifo = True,
-            # content_based_deduplication = True,
-            content_based_deduplication = False,
+            content_based_deduplication = True,
+            # content_based_deduplication = False,
         )
     
     def utils(self):
@@ -57,6 +57,13 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
         )
+        
+        # Give read permission to the control broker on the templates we store
+        # and pass to the control broker
+        for control_broker_principal_arn in self.control_broker_template_reader_arns:
+            self.bucket_config_event_payloads.grant_read(
+                aws_iam.ArnPrincipal(control_broker_principal_arn)
+            )
     
     def config_event_processing_sfn_lambdas(self):
 
@@ -297,6 +304,16 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 ],
                 resources=[
                     self.sfn_config_event_processing.attr_arn,
+                ],
+            )
+        )
+        self.lambda_invoked_by_config.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                ],
+                resources=[
+                    self.bucket_config_event_payloads.arn_for_objects("*"),
                 ],
             )
         )
