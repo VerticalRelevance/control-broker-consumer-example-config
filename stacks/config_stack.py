@@ -129,6 +129,27 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             memory_size=1024,
             code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/s3_select"),
         )
+        
+        # put evaluations
+        
+        self.lambda_put_evaluations = aws_lambda.Function(
+            self,
+            "PutEvaluations",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/put_evaluations"),
+        )
+        
+         self.lambda_put_evaluations.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "config:PutEvaluations",
+                ],
+                resources=["*"]
+            )
+        )
 
     def config_event_processing_sfn(self):
         
@@ -265,19 +286,49 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "ChoiceIsComplaint": {
                         "Type":"Choice",
-                        "Default":"CompliantFalse",
+                        "Default":"PutEvaluationsNonCompliant",
                         "Choices":[
                             {
                                 "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
                                 "BooleanEquals":True,
-                                "Next":"CompliantTrue"
+                                "Next":"PutEvaluationsCompliant"
                             }
                         ]
                     },
-                    "CompliantTrue": {
-                        "Type":"Succeed"
+                    "PutEvaluationsCompliant": {
+                        "Type": "Task",
+                        "Next": "Compliant",
+                        "ResultPath": "$.PutEvaluationsCompliant",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_put_evaluations.function_name,
+                            "Payload": {
+                                "Compliance": True
+                                "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
+                                "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
+                                "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
+                            },
+                        },
                     },
-                    "CompliantFalse": {
+                    "PutEvaluationsNonCompliant": {
+                        "Type": "Task",
+                        "Next": "Compliant",
+                        "ResultPath": "$.PutEvaluationsCompliant",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_put_evaluations.function_name,
+                            "Payload": {
+                                "Compliance": False
+                                "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
+                                "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
+                                "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
+                            },
+                        },
+                    },
+                    "Compliant": {
+                        "Type":"Succeed"
+                    }
+                    "NonCompliant": {
                         "Type":"Fail"
                     }
                 }

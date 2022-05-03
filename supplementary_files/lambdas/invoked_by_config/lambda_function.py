@@ -48,6 +48,9 @@ def lambda_handler(event, context):
 
     item_status = configuration_item["configurationItemStatus"]
     print(f"item_status:\n{item_status}")
+    
+    if item_status == 'ResourceDeleted':
+        return True
 
     resource_type = configuration_item["resourceType"]
     print(f"resource_type:\n{resource_type}")
