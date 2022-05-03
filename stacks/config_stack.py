@@ -24,12 +24,12 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         scope: Construct,
         construct_id: str,
         control_broker_apigw_url:str,
-        control_broker_template_reader_arns:List[str],
+        control_broker_input_reader_arns:List[str],
         **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
         self.control_broker_apigw_url = control_broker_apigw_url
-        self.control_broker_template_reader_arns = control_broker_template_reader_arns
+        self.control_broker_input_reader_arns = control_broker_input_reader_arns
         
         self.demo_change_tracked_by_config()
         self.utils()
@@ -63,7 +63,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         
         # Give read permission to the control broker on the templates we store
         # and pass to the control broker
-        for control_broker_principal_arn in self.control_broker_template_reader_arns:
+        for control_broker_principal_arn in self.control_broker_input_reader_arns:
             self.bucket_config_event_payloads.grant_read(
                 aws_iam.ArnPrincipal(control_broker_principal_arn)
             )
