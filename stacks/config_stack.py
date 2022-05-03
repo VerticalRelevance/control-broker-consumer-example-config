@@ -142,7 +142,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/put_evaluations"),
         )
         
-         self.lambda_put_evaluations.role.add_to_policy(
+        self.lambda_put_evaluations.role.add_to_policy(
             aws_iam.PolicyStatement(
                 actions=[
                     "config:PutEvaluations",
@@ -172,6 +172,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     self.lambda_sign_apigw_request.function_arn,
                     self.lambda_object_exists.function_arn,
                     self.lambda_s3_select.function_arn,
+                    self.lambda_put_evaluations.function_arn,
                 ],
             )
         )
@@ -303,7 +304,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_put_evaluations.function_name,
                             "Payload": {
-                                "Compliance": True
+                                "Compliance": True,
                                 "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
                                 "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
                                 "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
@@ -318,7 +319,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_put_evaluations.function_name,
                             "Payload": {
-                                "Compliance": False
+                                "Compliance": False,
                                 "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
                                 "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
                                 "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
@@ -327,7 +328,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "Compliant": {
                         "Type":"Succeed"
-                    }
+                    },
                     "NonCompliant": {
                         "Type":"Fail"
                     }
