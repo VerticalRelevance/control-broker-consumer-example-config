@@ -41,13 +41,13 @@ def get_resource_config_compliance(*,resource_type,resource_id, config_rule_name
 
 def lambda_handler(event, context):
 
+
+    class ConfigComplianceStatusIsNotAsExpectedException(Exception):
+        pass
+
     print(event)
     
-    control_broker_consumer_inputs = event['ControlBrokerConsumerInputs']
-    
-    print(f'control_broker_consumer_inputs\n{control_broker_consumer_inputs}')
-    
-    consumer_metadata = control_broker_consumer_inputs['ConsumerMetadata']
+    consumer_metadata = event['ConsumerMetadata']
 
     print(f'consumer_metadata\n{consumer_metadata}')
     
@@ -64,6 +64,14 @@ def lambda_handler(event, context):
         resource_id = resource_id,
         config_rule_name = config_rule_name,
     )
+    
+    expected_final_status = event['ExpectedFinalStatusIsCompliant']
+    
+    if expected_final_status is not None:
+        
+        if expected_final_status != compliance:
+            
+            raise ConfigComplianceStatusIsNotAsExpectedException
     
     return {
         "ResourceConfigIsCompliant":compliance

@@ -268,7 +268,10 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                            "Payload.$": "$"
+                            "Payload": {
+                                "ConsumerMetadata":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                                "ExpectedFinalStatusIsCompliant": None
+                            }
                         },
                         "ResultSelector": {
                             "Payload.$": "$.Payload"
@@ -350,7 +353,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "PutEvaluationsCompliant": {
                         "Type": "Task",
-                        "Next": "ChoiceResourceConfigComplianceHasChanged",
+                        "Next": "ChoiceNowGood",
                         "ResultPath": "$.PutEvaluationsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -364,12 +367,12 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         },
                         "ResultSelector": {"Payload.$": "$.Payload"},
                     },
-                    "ChoiceResourceConfigComplianceShouldChange": {
+                    "ChoiceNowGood": {
                         "Type":"Choice",
                         "Default":"WasBadNowGood",
                         "Choices":[
                             {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant",
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant", # Should be True
                                 "BooleanEqualsPath":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
                                 "Next":"WasGoodStillGood"
                             }
@@ -381,11 +384,49 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "WasBadNowGood": {
                         "Type":"Pass",
-                        "Next":"Compliant",
+                        "Next":"ConfirmBadToGood",
                     },
+                    "ConfirmBadToGood":{
+                        "Type": "Task",
+                        "Next": "Compliant",
+                        "ResultPath": "$.GetResourceConfigComplianceInitial",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload": {
+                                "ConsumerMetadata":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                                "ExpectedFinalStatusIsCompliant": True
+
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                        "Retry": [
+                            {
+                                "ErrorEquals": [
+                                    "ConfigComplianceStatusIsNotAsExpectedException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 8,
+                                "BackoffRate": 2.0
+                            }
+                        ],
+                        "Catch": [
+                            {
+                                "ErrorEquals":[
+                                    "States.ALL"
+                                ],
+                                "Next": "CannotConfirmBadToGood"
+                            }
+                        ]
+                    },
+                    "CannotConfirmBadToGood": {
+                        "Type":"Fail"
+                    }
                     "PutEvaluationsNonCompliant": {
                         "Type": "Task",
-                        "Next": "ChoiceResourceConfigComplianceShouldChange",
+                        "Next": "ChoiceNowBad",
                         "ResultPath": "$.PutEvaluationsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -399,30 +440,67 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         },
                         "ResultSelector": {"Payload.$": "$.Payload"},
                     },
-                    "ChoiceResourceConfigComplianceShouldChange": {
+                    "ChoiceNowBad": {
                         "Type":"Choice",
                         "Default":"WasGoodNowBad",
                         "Choices":[
                             {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant",
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant", # Should be False
                                 "BooleanEqualsPath":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
                                 "Next":"WasBadStillBad"
                             }
                         ]
-                    }
+                    },
                     "WasBadStillBad": {
                         "Type":"Pass",
                         "Next":"NonCompliant",
                     },
                     "WasGoodNowBad": {
                         "Type":"Pass",
-                        "Next":"NonCompliant",
+                        "Next":"ConfirmGoodToBad",
                     },
+                    "ConfirmGoodToBad":{
+                        "Type": "Task",
+                        "Next": "NonCompliant",
+                        "ResultPath": "$.GetResourceConfigComplianceInitial",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload": {
+                                "ConsumerMetadata":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                                "ExpectedFinalStatusIsCompliant": False
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                        "Retry": [
+                            {
+                                "ErrorEquals": [
+                                    "ConfigComplianceStatusIsNotAsExpectedException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 8,
+                                "BackoffRate": 2.0
+                            }
+                        ],
+                        "Catch": [
+                            {
+                                "ErrorEquals":[
+                                    "States.ALL"
+                                ],
+                                "Next": "CannotConfirmGoodToBad"
+                            }
+                        ]
+                    },
+                    "CannotConfirmGoodToBad": {
+                        "Type":"Fail"
+                    }
                     "Compliant": {
                         "Type":"Succeed"
                     },
                     "NonCompliant": {
-                        "Type":"Fail"
+                        "Type":"Succeed"
                     }
                 }
             }),
