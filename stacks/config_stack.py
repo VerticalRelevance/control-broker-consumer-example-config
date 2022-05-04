@@ -239,6 +239,9 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             definition_string=json.dumps({
                 "StartAt": "SignApigwRequest",
                 "States": {
+                    "CheckConfigComplianceStatus":{
+                        
+                    },
                     "SignApigwRequest": {
                         "Type": "Task",
                         "Next": "CheckResultsReportExists",

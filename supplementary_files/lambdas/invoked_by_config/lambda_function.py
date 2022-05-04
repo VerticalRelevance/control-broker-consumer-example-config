@@ -63,6 +63,9 @@ def lambda_handler(event, context):
 
     result_token = event["resultToken"]
     print(f"result_token:\n{result_token}")
+    
+    config_rule_name = event["configRuleName"]
+    print(f"config_rule_name:\n{config_rule_name}")
 
     # process
     
@@ -82,7 +85,8 @@ def lambda_handler(event, context):
     config_event_metadata = {
         "ResourceType":resource_type,
         "ResourceId":resource_id,
-        "ConfigResultToken":result_token
+        "ConfigResultToken":result_token,
+        "ConfigRuleName": config_rule_name
     }
     
     control_broker_consumer_inputs = {
