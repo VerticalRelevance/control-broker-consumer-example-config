@@ -411,5 +411,5 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
 
         self.custom_config_rule_sqs_poc.on_compliance_change(
             "Log",
-            target = aws_events_targets.CloudWatchLogsLogGroup(log_group_config_compliance)
+            target = aws_events_targets.CloudWatchLogGroup(log_group_config_compliance)
         )
