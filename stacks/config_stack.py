@@ -269,7 +269,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
                             "Payload": {
-                                "ConsumerMetadata":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                                "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
                                 "ExpectedFinalStatusIsCompliant": None
                             }
                         },
@@ -394,7 +394,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
                             "Payload": {
-                                "ConsumerMetadata":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                                "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
                                 "ExpectedFinalStatusIsCompliant": True
 
                             }
@@ -423,7 +423,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "CannotConfirmBadToGood": {
                         "Type":"Fail"
-                    }
+                    },
                     "PutEvaluationsNonCompliant": {
                         "Type": "Task",
                         "Next": "ChoiceNowBad",
@@ -467,7 +467,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
                             "Payload": {
-                                "ConsumerMetadata":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                                "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
                                 "ExpectedFinalStatusIsCompliant": False
                             }
                         },
@@ -495,7 +495,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "CannotConfirmGoodToBad": {
                         "Type":"Fail"
-                    }
+                    },
                     "Compliant": {
                         "Type":"Succeed"
                     },
