@@ -259,12 +259,12 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 level="ALL",
             ),
             definition_string=json.dumps({
-                "StartAt": "GetResourceConfigCompliance",
+                "StartAt": "GetResourceConfigComplianceInitial",
                 "States": {
-                    "GetResourceConfigCompliance":{
+                    "GetResourceConfigComplianceInitial":{
                         "Type": "Task",
                         "Next": "SignApigwRequest",
-                        "ResultPath": "$.GetResourceConfigCompliance",
+                        "ResultPath": "$.GetResourceConfigComplianceInitial",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
@@ -350,7 +350,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "PutEvaluationsCompliant": {
                         "Type": "Task",
-                        "Next": "Compliant",
+                        "Next": "ChoiceResourceConfigComplianceHasChanged",
                         "ResultPath": "$.PutEvaluationsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -364,9 +364,28 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         },
                         "ResultSelector": {"Payload.$": "$.Payload"},
                     },
+                    "ChoiceResourceConfigComplianceShouldChange": {
+                        "Type":"Choice",
+                        "Default":"WasBadNowGood",
+                        "Choices":[
+                            {
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant",
+                                "BooleanEqualsPath":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "Next":"WasGoodStillGood"
+                            }
+                        ]
+                    },
+                    "WasGoodStillGood": {
+                        "Type":"Pass",
+                        "Next":"Compliant",
+                    },
+                    "WasBadNowGood": {
+                        "Type":"Pass",
+                        "Next":"Compliant",
+                    },
                     "PutEvaluationsNonCompliant": {
                         "Type": "Task",
-                        "Next": "NonCompliant",
+                        "Next": "ChoiceResourceConfigComplianceShouldChange",
                         "ResultPath": "$.PutEvaluationsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -379,6 +398,25 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             },
                         },
                         "ResultSelector": {"Payload.$": "$.Payload"},
+                    },
+                    "ChoiceResourceConfigComplianceShouldChange": {
+                        "Type":"Choice",
+                        "Default":"WasGoodNowBad",
+                        "Choices":[
+                            {
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant",
+                                "BooleanEqualsPath":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "Next":"WasBadStillBad"
+                            }
+                        ]
+                    }
+                    "WasBadStillBad": {
+                        "Type":"Pass",
+                        "Next":"NonCompliant",
+                    },
+                    "WasGoodNowBad": {
+                        "Type":"Pass",
+                        "Next":"NonCompliant",
                     },
                     "Compliant": {
                         "Type":"Succeed"
