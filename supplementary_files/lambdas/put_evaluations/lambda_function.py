@@ -60,12 +60,13 @@ class ConfigCompliance:
         else:
             return True
 
-    def main(self):
+    def put_compliant_status(self):
         if self.compliant:
-            self.evaluate_compliant()
+            evaluation_completion_status = self.evaluate_compliant()
         else:
-            self.evaluate_noncompliant()
-
+            evaluation_completion_status= self.evaluate_noncompliant()
+        
+        return evaluation_completion_status
 
 def lambda_handler(event, context):
 
@@ -78,4 +79,9 @@ def lambda_handler(event, context):
         Compliant=event['Compliance'],
     )
     
-    c.main()
+    evaluation_completion_status = c.put_compliant_status()
+    print(f"evaluation_completion_status\n{evaluation_completion_status}")
+    
+    return {
+        "EvaluationCompletionStatus": evaluation_completion_status
+    }

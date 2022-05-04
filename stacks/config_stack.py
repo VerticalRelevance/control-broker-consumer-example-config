@@ -47,8 +47,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             self,
             "DemoChangeTrackedByConfig",
             fifo = True,
-            content_based_deduplication = True,
-            # content_based_deduplication = False,
+            # content_based_deduplication = True,
+            content_based_deduplication = False,
         )
     
     def utils(self):
@@ -310,6 +310,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                                 "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
                             },
                         },
+                        "ResultSelector": {"Payload.$": "$.Payload"},
                     },
                     "PutEvaluationsNonCompliant": {
                         "Type": "Task",
@@ -325,6 +326,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                                 "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
                             },
                         },
+                        "ResultSelector": {"Payload.$": "$.Payload"},
                     },
                     "Compliant": {
                         "Type":"Succeed"
