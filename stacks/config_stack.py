@@ -61,7 +61,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             fifo = True,
             # content_based_deduplication = True,
             # content_based_deduplication = False,
-            content_based_deduplication = toggled_boolean,
+            content_based_deduplication = not toggled_boolean,
         )
         
         # DEV: ToggledBoolean alternates upon every deploy

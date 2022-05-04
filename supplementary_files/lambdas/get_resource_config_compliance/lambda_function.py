@@ -30,11 +30,11 @@ def get_resource_config_compliance(*,resource_type,resource_id, config_rule_name
         
         evaluation_results = [i['ComplianceType'] for i in evaluation_results if i['EvaluationResultIdentifier']['EvaluationResultQualifier']['ConfigRuleName'] == config_rule_name]
         
-        compliance = evaluation_results[0]
+        evaluation_result = evaluation_results[0]
         
-        print(f'compliance:\n{compliance}')
+        print(f'evaluation_result:\n{evaluation_result}')
 
-        return compliance == 'COMPLIANT'
+        return evaluation_result == 'COMPLIANT'
 
 
 def lambda_handler(event, context):
@@ -74,7 +74,11 @@ def lambda_handler(event, context):
             print(f'{expected_final_status} != {compliance}\nraising ConfigComplianceStatusIsNotAsExpectedException')
             
             raise ConfigComplianceStatusIsNotAsExpectedException
-    
+        
+        else:
+            
+            print(f'{expected_final_status} == {compliance}')
+            
     return {
         "ResourceConfigIsCompliant":compliance
     }
