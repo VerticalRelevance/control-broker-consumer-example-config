@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_stepfunctions,
     aws_logs,
     aws_s3,
+    aws_events_targets,
     aws_lambda_python_alpha, #expirmental
 )
 from constructs import Construct
@@ -391,7 +392,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             )
         )
 
-        self.custom_config_rule = aws_config.CustomRule(
+        self.custom_config_rule_sqs_poc = aws_config.CustomRule(
             self,
             "SQS-PoC",
             rule_scope=aws_config.RuleScope.from_resources([
@@ -399,4 +400,16 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             ]),
             lambda_function=self.lambda_invoked_by_config,
             configuration_changes=True,
+        )
+
+        log_group_config_compliance = aws_logs.LogGroup(
+            self,
+            "ConfigCompliance",
+            # log_group_name=f"/aws/vendedlogs/states/ConfigEventProcessingSfnLogs",
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
+        self.custom_config_rule_sqs_poc.on_compliance_change(
+            "Log",
+            target = aws_events_targets.CloudWatchLogsLogGroup(log_group_config_compliance)
         )
