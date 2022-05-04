@@ -26,7 +26,11 @@ def get_resource_config_compliance(*,resource_type,resource_id, config_rule_name
         
         evaluation_results = r['EvaluationResults']
         
-        evaluation_results = [i['ComplianceType'] for i in evaluation_results if i['EvaluationResultIdentifier']['EvaluationResultQualifier']['ConfigRuleName'] = config_rule_name]
+        print(f'evaluation_results\n{evaluation_results}')
+        
+        evaluation_results = [i['ComplianceType'] for i in evaluation_results if i['EvaluationResultIdentifier']['EvaluationResultQualifier']['ConfigRuleName'] == config_rule_name]
+        
+        print(f'evaluation_results\n{evaluation_results}')
         
         compliance = evaluation_results[0]
         
@@ -55,10 +59,12 @@ def lambda_handler(event, context):
     
     # result_token = consumer_metadata['ResultToken']
     
-    return get_resource_config_compliance(
+    compliance =  get_resource_config_compliance(
         resource_type = resource_type,
         resource_id = resource_id,
         config_rule_name = config_rule_name,
     )
     
-    
+    return {
+        "ResourceConfigIsCompliant":compliance
+    }
