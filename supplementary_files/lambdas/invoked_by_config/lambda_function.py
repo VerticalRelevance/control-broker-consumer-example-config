@@ -86,7 +86,7 @@ def lambda_handler(event, context):
         "ResourceType":resource_type,
         "ResourceId":resource_id,
         "ConfigResultToken":result_token,
-        "ConfigRuleName": config_rule_name
+        "ConfigRuleName": config_rule_name,
     }
     
     control_broker_consumer_inputs = {

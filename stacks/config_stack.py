@@ -167,6 +167,27 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 resources=["*"]
             )
         )
+        
+        # get config compliance
+        
+        self.lambda_get_resource_config_compliance = aws_lambda.Function(
+            self,
+            "GetResourceConfigCompliance",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/get_resource_config_compliance"),
+        )
+        
+        self.lambda_get_resource_config_compliance.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "config:GetComplianceDetailsByResource",
+                ],
+                resources=["*"]
+            )
+        )
 
     def config_event_processing_sfn(self):
         
@@ -190,6 +211,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     self.lambda_object_exists.function_arn,
                     self.lambda_s3_select.function_arn,
                     self.lambda_put_evaluations.function_arn,
+                    self.lambda_get_resource_config_compliance.function_arn,
                 ],
             )
         )
@@ -237,10 +259,20 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 level="ALL",
             ),
             definition_string=json.dumps({
-                "StartAt": "SignApigwRequest",
+                "StartAt": "GetResourceConfigCompliance",
                 "States": {
-                    "CheckConfigComplianceStatus":{
-                        
+                    "GetResourceConfigCompliance":{
+                        "Type": "Task",
+                        "Next": "SignApigwRequest",
+                        "ResultPath": "$.GetResourceConfigCompliance",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload.$": "$"
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
                     },
                     "SignApigwRequest": {
                         "Type": "Task",
