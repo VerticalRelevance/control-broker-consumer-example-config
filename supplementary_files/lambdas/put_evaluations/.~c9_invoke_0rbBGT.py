@@ -25,7 +25,7 @@ class ConfigCompliance:
                         "ComplianceResourceType": self.resource_type,
                         "ComplianceResourceId": self.resource_id,
                         "ComplianceType": "COMPLIANT",
-                        # 'Annotation': 'string', #TODO add useful metadata
+                        # 'Annotation': 'string', #TODO
                         "OrderingTimestamp": datetime(2015, 1, 1),  # FIXME
                     },
                 ],

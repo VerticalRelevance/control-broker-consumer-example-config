@@ -39,18 +39,34 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
     
     def demo_change_tracked_by_config(self):
         
-        pass
-    
         # toggle content-based deduplication to trigger change tracked by Config
+        
+        # DEV: ToggledBoolean alternates upon every deploy
+        with open('./dev/tracked_by_config/toggled_boolean.json','r') as f:
+            toggled_boolean = json.loads(f.read())['ToggledBoolean']
         
         aws_sqs.Queue(
             self,
-            "DemoChangeTrackedByConfig",
+            "TrackedByConfig01",
             fifo = True,
             # content_based_deduplication = True,
-            content_based_deduplication = False,
+            # content_based_deduplication = False,
+            content_based_deduplication = toggled_boolean,
         )
-    
+        
+        aws_sqs.Queue(
+            self,
+            "TrackedByConfig02",
+            fifo = True,
+            # content_based_deduplication = True,
+            # content_based_deduplication = False,
+            content_based_deduplication = toggled_boolean,
+        )
+        
+        # DEV: ToggledBoolean alternates upon every deploy
+        with open('./dev/tracked_by_config/toggled_boolean.json','w') as f:
+            json.dump({'ToggledBoolean':not toggled_boolean},f)
+        
     def utils(self):
         
         self.bucket_config_event_payloads = aws_s3.Bucket(
@@ -61,7 +77,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             auto_delete_objects=True,
         )
         
-        # Give read permission to the control broker on the templates we store
+        # Give read permission to the control broker on the Consumer Inputs we store
         # and pass to the control broker
         for control_broker_principal_arn in self.control_broker_input_reader_arns:
             self.bucket_config_event_payloads.grant_read(

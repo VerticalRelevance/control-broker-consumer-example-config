@@ -7,7 +7,7 @@ from stacks.config_stack import ControlBrokerConsumerExampleConfigStack
 
 app = cdk.App()
 
-ControlBrokerConsumerExampleConfigStack(app, "ControlBrokerConsumerExampleConfigStack",
+ControlBrokerConsumerExampleConfigStack(app, "CBConsumerConfig",
 
     env=cdk.Environment(account=os.getenv('CDK_DEFAULT_ACCOUNT'), region=os.getenv('CDK_DEFAULT_REGION')),
     control_broker_input_reader_arns=app.node.try_get_context("control-broker/input-reader-arns"),
