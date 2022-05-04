@@ -342,12 +342,17 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "ChoiceIsComplaint": {
                         "Type":"Choice",
-                        "Default":"PutEvaluationsNonCompliant",
+                        # "Default":"PutEvaluationsNonCompliant",
                         "Choices":[
                             {
                                 "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
                                 "BooleanEquals":True,
                                 "Next":"PutEvaluationsCompliant"
+                            },
+                            {
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
+                                "BooleanEquals":False,
+                                "Next":"PutEvaluationsNonCompliant"
                             }
                         ]
                     },
@@ -369,12 +374,17 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "ChoiceNowGood": {
                         "Type":"Choice",
-                        "Default":"WasBadNowGood",
+                        # "Default":"WasBadNowGood",
                         "Choices":[
                             {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant", # Should be True
-                                "BooleanEqualsPath":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "BooleanEquals": True,
                                 "Next":"WasGoodStillGood"
+                            },
+                            {
+                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "BooleanEquals": False,
+                                "Next":"WasBadNowGood"
                             }
                         ]
                     },
@@ -442,12 +452,17 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "ChoiceNowBad": {
                         "Type":"Choice",
-                        "Default":"WasGoodNowBad",
+                        # "Default":"WasGoodNowBad",
                         "Choices":[
                             {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.ResourceConfigIsCompliant", # Should be False
-                                "BooleanEqualsPath":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "BooleanEquals":False,
                                 "Next":"WasBadStillBad"
+                            },
+                            {
+                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+                                "BooleanEquals":True,
+                                "Next":"WasGoodNowBad"
                             }
                         ]
                     },
