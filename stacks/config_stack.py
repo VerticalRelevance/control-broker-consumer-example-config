@@ -246,6 +246,9 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         
         when no Compliance details yet available
         
+        perhaps comparison to initial is not required, simply assert that 
+        final Compliance status is equal to expected_final_status
+        
         """
 
         self.sfn_config_event_processing = aws_stepfunctions.CfnStateMachine(
