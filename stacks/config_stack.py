@@ -184,6 +184,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             aws_iam.PolicyStatement(
                 actions=[
                     "config:GetComplianceDetailsByResource",
+                    "config:GetComplianceDetailsByConfigRule",
+                    "config:GetComplianceDetailsBy*",
                 ],
                 resources=["*"]
             )
@@ -238,6 +240,13 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 ],
             )
         )
+        
+        """
+        TODO: handle first run where lambda_get_resource_config_compliance returns None
+        
+        when no Compliance details yet available
+        
+        """
 
         self.sfn_config_event_processing = aws_stepfunctions.CfnStateMachine(
             self,
