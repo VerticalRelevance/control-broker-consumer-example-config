@@ -77,68 +77,11 @@ def lambda_handler(event, context):
 
     # process
     
-    invoked_by_key = f'{config_rule_name}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
-
-    invoke_url = os.environ['ControlBrokerInvokeUrl']
-    
-    input_analyzed = {
-        "Bucket":os.environ['ConfigEventsRawInputBucket'],
-        "Key":invoked_by_key
-    }
-    
-    put_object(
-        bucket = input_analyzed['Bucket'],
-        key = input_analyzed['Key'],
-        object_ = event
-    )
-    
-    cb_input_object = {
-        "Context":{
-            "EnvironmentEvaluation":"Prod",
-        },
-        "Input": input_analyzed
-    }
-    
-        
-    def get_host(full_invoke_url):
-        m = re.search('https://(.*)/.*',full_invoke_url)
-        return m.group(1)
-    
-    full_invoke_url=os.environ['ControlBrokerInvokeUrl']
-    
-    host = get_host(full_invoke_url)
-        
-    auth = BotoAWSRequestsAuth(
-        aws_host= host,
-        aws_region=region,
-        aws_service='execute-api'
-    )
-    
-    r = requests.post(
-        full_invoke_url,
-        auth = auth,
-        json = cb_input_object
-    )
-    
-    print(f'headers:\n{dict(r.request.headers)}\n')
-    
-    cb_endpoint_response = json.loads(r.content)
-    
-    status_code = r.status_code
-    
-    apigw_formatted_response = {
-        'StatusCode':status_code,
-        'Content': cb_endpoint_response
-    }
-    
-    print(f'\napigw_formatted_response:\n{apigw_formatted_response}')
-    
-    if status_code != 200:
-        return False
-    
     processed = async_sfn(
         sfn_arn=os.environ["ConfigEventProcessingSfnArn"],
-        input=cb_endpoint_response
+        input=event
     )
 
     print(f'processed by sfn:\n{processed}')
+    
+    return True

@@ -107,6 +107,25 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
     
     def config_event_processing_sfn_lambdas(self):
 
+        # sign apigw request
+        
+        self.lambda_sign_apigw_request = aws_lambda.Function(
+            self,
+            "SignApigwRequest",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset(
+                "./supplementary_files/lambdas/sign_apigw_request"
+            ),
+            environment=dict(
+                ControlBrokerInvokeUrl=self.control_broker_apigw_url,
+                ConfigEventsRawInputBucket=self.bucket_config_event_raw_inputs.bucket_name,
+            )
+        )
+
+
         # object exists
         
         self.lambda_object_exists = aws_lambda.Function(
@@ -537,8 +556,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             timeout=Duration.seconds(60),
             memory_size=1024,
             environment={
-                "ControlBrokerInvokeUrl": self.control_broker_apigw_url,
-                "ConfigEventsRawInputBucket":self.bucket_config_event_raw_inputs.bucket_name,
+                
                 "ConfigEventProcessingSfnArn": self.sfn_config_event_processing.attr_arn
             },
             layers=[
@@ -558,16 +576,6 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             )
         )
         
-        self.lambda_invoked_by_config.role.add_to_policy(
-            aws_iam.PolicyStatement(
-                actions=[
-                    "s3:PutObject",
-                ],
-                resources=[
-                    self.bucket_config_event_raw_inputs.arn_for_objects("*"),
-                ],
-            )
-        )
 
         self.custom_config_rule_sqs_poc = aws_config.CustomRule(
             self,
