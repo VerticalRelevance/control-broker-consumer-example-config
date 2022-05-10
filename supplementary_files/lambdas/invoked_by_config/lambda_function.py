@@ -39,61 +39,6 @@ def put_object(bucket,key,object_:dict):
     else:
         return True
 
-class SimpleControlBrokerClient():
-    def __init__(self,*,
-        invoke_url,
-        input_analyzed,
-        input_object:dict,
-    ):
-        
-        self.invoke_url = invoke_url
-        self.input_analyzed = input_analyzed
-        self.input_object = input_object
-        
-        
-    def put_input(self):
-        
-        put = put_object(
-            bucket=self.input_analyzed['Bucket'],
-            key=self.input_analyzed['Key'],
-            object_ = self.input_object
-        )
-        
-    def invoke_endpoint(self):
-        
-        def get_host(*,full_invoke_url):
-            m = re.search('https://(.*)/.*',full_invoke_url)
-            return m.group(1)
-        
-        host = get_host(full_invoke_url=self.invoke_url)
-            
-        auth = BotoAWSRequestsAuth(
-            aws_host= host,
-            aws_region=region,
-            aws_service='execute-api'
-        )
-        
-        r = requests.post(
-            self.invoke_url,
-            auth = auth,
-            json = self.input_object
-        )
-        
-        print(f'headers:\n{dict(r.request.headers)}\n')
-        
-        content = json.loads(r.content)
-        
-        r = {
-            'StatusCode':r.status_code,
-            'Content': content
-        }
-        
-        print(f'\napigw formatted response:\n')
-        print(r)
-    
-        return r
-
-
 def lambda_handler(event, context):
 
     print(event)
@@ -149,30 +94,51 @@ def lambda_handler(event, context):
     
     cb_input_object = {
         "Context":{
-            "EnvironmentEvaluation":"Prod"
+            "EnvironmentEvaluation":"Prod",
         },
         "Input": input_analyzed
     }
     
-    s = SimpleControlBrokerClient(
-        invoke_url = invoke_url,
-        input_analyzed = input_analyzed,
-        input_object = cb_input_object
+        
+    def get_host(full_invoke_url):
+        m = re.search('https://(.*)/.*',full_invoke_url)
+        return m.group(1)
+    
+    full_invoke_url=os.environ['ControlBrokerInvokeUrl']
+    
+    host = get_host(full_invoke_url)
+        
+    auth = BotoAWSRequestsAuth(
+        aws_host= host,
+        aws_region=region,
+        aws_service='execute-api'
     )
     
-    s.put_input()
+    r = requests.post(
+        full_invoke_url,
+        auth = auth,
+        json = cb_input_object
+    )
     
-    cb_endpoint_response = s.invoke_endpoint()
+    print(f'headers:\n{dict(r.request.headers)}\n')
     
-    print(f'cb_endpoint_response:\n{cb_endpoint_response}')
+    cb_endpoint_response = json.loads(r.content)
     
-    config_event_processing_input = {
-        "ControlBrokerEndpointResponse":cb_endpoint_response
+    status_code = r.status_code
+    
+    apigw_formatted_response = {
+        'StatusCode':status_code,
+        'Content': cb_endpoint_response
     }
+    
+    print(f'\napigw_formatted_response:\n{apigw_formatted_response}')
+    
+    if status_code != 200:
+        return False
     
     processed = async_sfn(
         sfn_arn=os.environ["ConfigEventProcessingSfnArn"],
-        input=config_event_processing_input
+        input=cb_endpoint_response
     )
 
     print(f'processed by sfn:\n{processed}')

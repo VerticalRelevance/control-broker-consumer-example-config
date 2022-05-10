@@ -256,42 +256,43 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 level="ALL",
             ),
             definition_string=json.dumps({
-                "StartAt": "GetResourceConfigComplianceInitial",
+                "StartAt": "GetConfigEvent",
                 "States": {
-                    "GetResourceConfigComplianceInitial":{
-                        "Type": "Succeed",
-                    }
+                    "GetConfigEvent": {
+                        "Type": "Task",
+                        "End":True,
+                        "ResultPath": "$.GetConfigEvent",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_s3_select.function_name,
+                            "Payload": {
+                                "Bucket.$":"$.Request.Content.Input.Bucket",
+                                "Key.$":"$.Request.Content.Input.Key",
+                                "Expression": "SELECT * from S3Object s",
+                            },
+                        },
+                        "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
+                    },
+                    
+                    # "GetResourceConfigComplianceInitial":{
+                    #     "Type": "Task",
+                    #     "End":True, 
+                    #     "ResultPath": "$.GetResourceConfigComplianceInitial",
+                    #     "Resource": "arn:aws:states:::lambda:invoke",
+                    #     "Parameters": {
+                    #         "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                    #         "Payload": {
+                    #             "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+                    #             "ExpectedFinalStatusIsCompliant": None
+                    #         }
+                    #     },
+                    #     "ResultSelector": {
+                    #         "Payload.$": "$.Payload"
+                    #     },
+                    # },
                 }
             })
         )
-        #                 "Type": "Task",
-        #                 "Next": "SignApigwRequest",
-        #                 "ResultPath": "$.GetResourceConfigComplianceInitial",
-        #                 "Resource": "arn:aws:states:::lambda:invoke",
-        #                 "Parameters": {
-        #                     "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-        #                     "Payload": {
-        #                         "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-        #                         "ExpectedFinalStatusIsCompliant": None
-        #                     }
-        #                 },
-        #                 "ResultSelector": {
-        #                     "Payload.$": "$.Payload"
-        #                 },
-        #             },
-        #             "SignApigwRequest": {
-        #                 "Type": "Task",
-        #                 "Next": "CheckResultsReportExists",
-        #                 "ResultPath": "$.SignApigwRequest",
-        #                 "Resource": "arn:aws:states:::lambda:invoke",
-        #                 "Parameters": {
-        #                     "FunctionName": self.lambda_sign_apigw_request.function_name,
-        #                     "Payload.$": "$"
-        #                 },
-        #                 "ResultSelector": {
-        #                     "Payload.$": "$.Payload"
-        #                 },
-        #             },
         #             "CheckResultsReportExists": {
         #                 "Type": "Task",
         #                 "Next": "GetResultsReportIsCompliantBoolean",
@@ -533,6 +534,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             code=aws_lambda.Code.from_asset(str(paths.LAMBDA_FUNCTIONS / 'invoked_by_config')),
             handler='lambda_function.lambda_handler',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
+            timeout=Duration.seconds(60),
+            memory_size=1024,
             environment={
                 "ControlBrokerInvokeUrl": self.control_broker_apigw_url,
                 "ConfigEventsRawInputBucket":self.bucket_config_event_raw_inputs.bucket_name,
