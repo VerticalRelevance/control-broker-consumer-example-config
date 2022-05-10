@@ -388,7 +388,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_put_evaluations.function_name,
                             "Payload": {
-                                "Compliance": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
+                                "Compliance.$": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
                                 "ConfigResultToken.$":"$.ConfigEvent.resultToken",
                                 "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
                                 "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
@@ -398,21 +398,21 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "GetResourceConfigCompliancee":{
                         "Type": "Task",
-                        "End":True,
+                        "Next":"ChoiceComplianceStatusIsAsExpected",
                         "ResultPath": "$.GetResourceConfigCompliancee",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
                             "Payload": {
                                 "ConfigEvent.$":"$.ConfigEvent",
-                                "ExpectedComplianceStatus": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant"
+                                "ExpectedComplianceStatus.$": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant"
                             }
                         },
                         "ResultSelector": {
                             "Payload.$": "$.Payload"
                         },
                     },
-                    "ChoiceComplianceStatusIsAsExpectede": {
+                    "ChoiceComplianceStatusIsAsExpected": {
                         "Type":"Choice",
                         "Default":"ComplianceStatusIsAsExpectedFalse",
                         "Choices":[
