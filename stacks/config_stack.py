@@ -249,7 +249,6 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     self.lambda_put_evaluations.function_arn,
                     self.lambda_get_resource_config_compliance.function_arn,
                     self.lambda_sign_apigw_request.function_arn,
-                    self.lambda_s3_select.function_arn,
                 ],
             )
         )
@@ -330,7 +329,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "GetResourceConfigComplianceInitial":{
                         "Type": "Task",
-                        "Next":"GetConfigEvent", 
+                        "Next":"GetResultsReportIsCompliantBoolean", 
                         "ResultPath": "$.GetResourceConfigComplianceInitial",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -392,12 +391,41 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             },
                         ]
                     },
-                    "PutEvaluationsIsCompliantTrue": {
-                        "Type": "Succeed",
-                    },
                     "PutEvaluationsIsCompliantFalse": {
                         "Type": "Task",
-                        "End": True,
+                        "Next": "GetResourceConfigComplianceCompliantFalse",
+                        "ResultPath": "$.PutEvaluationsIsCompliantFalse",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_put_evaluations.function_name,
+                            "Payload": {
+                                "Compliance": False,
+                                "ConfigResultToken.$":"$.ConfigEvent.resultToken",
+                                "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
+                                "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
+                            },
+                        },
+                        "ResultSelector": {"Payload.$": "$.Payload"},
+                    },
+                    "GetResourceConfigComplianceCompliantFalse":{
+                        "Type": "Task",
+                        "End":True,
+                        "ResultPath": "$.GetResourceConfigComplianceCompliantFalse",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload": {
+                                "ConfigEvent.$":"$.ConfigEvent",
+                                "ExpectedFinalStatusIsCompliant": False
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                    },
+                    "PutEvaluationsIsCompliantTrue": {
+                        "Type": "Task",
+                        "Next": "GetResourceConfigComplianceCompliantTrue",
                         "ResultPath": "$.PutEvaluationsIsCompliantTrue",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -410,6 +438,22 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             },
                         },
                         "ResultSelector": {"Payload.$": "$.Payload"},
+                    },
+                    "GetResourceConfigComplianceCompliantTrue":{
+                        "Type": "Task",
+                        "End":True,
+                        "ResultPath": "$.GetResourceConfigComplianceCompliantTrue",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload": {
+                                "ConfigEvent.$":"$.ConfigEvent",
+                                "ExpectedFinalStatusIsCompliant": True
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
                     },
                 }
             })
