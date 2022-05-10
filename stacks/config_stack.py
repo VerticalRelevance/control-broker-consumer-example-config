@@ -141,30 +141,18 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             )
         )
 
-        # object exists
+        # get object
         
-        self.lambda_object_exists = aws_lambda.Function(
+        self.lambda_get_object = aws_lambda.Function(
             self,
-            "ObjectExists",
+            "GetObject",
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             handler="lambda_function.lambda_handler",
             timeout=Duration.seconds(60),
             memory_size=1024,
             code=aws_lambda.Code.from_asset(
-                "./supplementary_files/lambdas/s3_head_object"
+                "./supplementary_files/handlers_stack/get_object"
             ),
-        )
-        
-        # s3 select
-        
-        self.lambda_s3_select = aws_lambda.Function(
-            self,
-            "S3Select",
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
-            handler="lambda_function.lambda_handler",
-            timeout=Duration.seconds(60),
-            memory_size=1024,
-            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/s3_select"),
         )
         
         # put evaluations
@@ -229,8 +217,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             aws_iam.PolicyStatement(
                 actions=["lambda:InvokeFunction"],
                 resources=[
-                    self.lambda_object_exists.function_arn,
-                    self.lambda_s3_select.function_arn,
+                    self.lambda_get_object.function_arn,
                     self.lambda_put_evaluations.function_arn,
                     self.lambda_get_resource_config_compliance.function_arn,
                     self.lambda_sign_apigw_request.function_arn,
@@ -328,13 +315,13 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             "Payload.$": "$.Payload"
                         },
                     },
-                    "CheckResultsReportExists": {
+                    "GetResultsReportIsCompliantBoolean": {
                         "Type": "Task",
-                        "Next": "GetResultsReportIsCompliantBoolean",
-                        "ResultPath": "$.CheckResultsReportExists",
+                        "Next": "ChoiceIsComplaint",
+                        "ResultPath": "$.GetResultsReportIsCompliantBoolean",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
-                            "FunctionName": self.lambda_object_exists.function_name,
+                            "FunctionName": self.lambda_get_object.function_name,
                             "Payload": {
                                 "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.Raw",
                                 "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
@@ -364,21 +351,6 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "ResultsReportDoesNotYetExist": {
                         "Type":"Fail"
-                    },
-                    "GetResultsReportIsCompliantBoolean": {
-                        "Type": "Task",
-                        "Next": "ChoiceIsComplaint",
-                        "ResultPath": "$.GetResultsReportIsCompliantBoolean",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_s3_select.function_name,
-                            "Payload": {
-                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.OutputHandlers[0].AccessPointArn", # first output handler
-                                "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
-                                "Expression": "SELECT * from S3Object s"
-                            }
-                        },
-                        "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
                     },
                     "ChoiceIsComplaint": {
                         "Type":"Choice",
