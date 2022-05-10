@@ -122,7 +122,11 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             environment=dict(
                 ControlBrokerInvokeUrl=self.control_broker_apigw_url,
                 ConfigEventsRawInputBucket=self.bucket_config_event_raw_inputs.bucket_name,
-            )
+            ),
+            layers = [
+                self.layers['requests'],
+                self.layers['aws_requests_auth'],
+            ]
         )
 
         self.lambda_sign_apigw_request.role.add_to_policy(
@@ -299,7 +303,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "SignApigwRequest": {
                         "Type": "Task",
-                        "End":True,
+                        "Next":"GetResourceConfigComplianceInitial",
                         "ResultPath": "$.SignApigwRequest",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -308,77 +312,65 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         },
                         "ResultSelector": {"Payload.$": "$.Payload"},
                     },
-                    # "GetConfigEvent": {
-                    #     "Type": "Task",
-                    #     "End":True,
-                    #     "ResultPath": "$.GetConfigEvent",
-                    #     "Resource": "arn:aws:states:::lambda:invoke",
-                    #     "Parameters": {
-                    #         "FunctionName": self.lambda_s3_select.function_name,
-                    #         "Payload": {
-                    #             "Bucket.$":"$.Request.Content.Input.Bucket",
-                    #             "Key.$":"$.Request.Content.Input.Key",
-                    #             "Expression": "SELECT * from S3Object s",
-                    #         },
-                    #     },
-                    #     "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
-                    # },
-                    
-                    # "GetResourceConfigComplianceInitial":{
-                    #     "Type": "Task",
-                    #     "End":True, 
-                    #     "ResultPath": "$.GetResourceConfigComplianceInitial",
-                    #     "Resource": "arn:aws:states:::lambda:invoke",
-                    #     "Parameters": {
-                    #         "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                    #         "Payload": {
-                    #             "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-                    #             "ExpectedFinalStatusIsCompliant": None
-                    #         }
-                    #     },
-                    #     "ResultSelector": {
-                    #         "Payload.$": "$.Payload"
-                    #     },
-                    # },
+                    "GetResourceConfigComplianceInitial":{
+                        "Type": "Task",
+                        "Next":"CheckResultsReportExists", 
+                        "ResultPath": "$.GetResourceConfigComplianceInitial",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload": {
+                                "ConfigEvent.$":"$.ConfigEvent",
+                                "ExpectedFinalStatusIsCompliant": None
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                    },
+                    "CheckResultsReportExists": {
+                        "Type": "Task",
+                        "Next": "GetResultsReportIsCompliantBoolean",
+                        "ResultPath": "$.CheckResultsReportExists",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_object_exists.function_name,
+                            "Payload": {
+                                "Bucket.$":"$.SignApigwRequest.Payload.Request.Content.Input.Bucket",
+                                "Key.$":"$.SignApigwRequest.Payload.Request.Content.Input.Key"
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                        "Retry": [
+                            {
+                                "ErrorEquals": [
+                                    "ObjectDoesNotExistException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 6,
+                                "BackoffRate": 2.0
+                            }
+                        ],
+                        "Catch": [
+                            {
+                                "ErrorEquals":[
+                                    "States.ALL"
+                                ],
+                                "Next": "ResultsReportDoesNotYetExist"
+                            }
+                        ]
+                    },
+                    "ResultsReportDoesNotYetExist": {
+                        "Type":"Fail"
+                    },
+                    "GetResultsReportIsCompliantBoolean": {
+                        "Type":"Succeed"
+                    },
                 }
             })
         )
-        #             "CheckResultsReportExists": {
-        #                 "Type": "Task",
-        #                 "Next": "GetResultsReportIsCompliantBoolean",
-        #                 "ResultPath": "$.CheckResultsReportExists",
-        #                 "Resource": "arn:aws:states:::lambda:invoke",
-        #                 "Parameters": {
-        #                     "FunctionName": self.lambda_object_exists.function_name,
-        #                     "Payload": {
-        #                         "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri"
-        #                     }
-        #                 },
-        #                 "ResultSelector": {
-        #                     "Payload.$": "$.Payload"
-        #                 },
-        #                 "Retry": [
-        #                     {
-        #                         "ErrorEquals": [
-        #                             "ObjectDoesNotExistException"
-        #                         ],
-        #                         "IntervalSeconds": 1,
-        #                         "MaxAttempts": 6,
-        #                         "BackoffRate": 2.0
-        #                     }
-        #                 ],
-        #                 "Catch": [
-        #                     {
-        #                         "ErrorEquals":[
-        #                             "States.ALL"
-        #                         ],
-        #                         "Next": "ResultsReportDoesNotYetExist"
-        #                     }
-        #                 ]
-        #             },
-        #             "ResultsReportDoesNotYetExist": {
-        #                 "Type":"Fail"
-        #             },
         #             "GetResultsReportIsCompliantBoolean": {
         #                 "Type": "Task",
         #                 "Next": "ChoiceIsComplaint",

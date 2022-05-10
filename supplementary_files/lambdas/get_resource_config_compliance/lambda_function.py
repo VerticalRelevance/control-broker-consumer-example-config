@@ -52,47 +52,47 @@ def get_resource_config_compliance_by_resource(*,resource_type,resource_id, conf
     
             return evaluation_result == 'COMPLIANT'
 
-def get_resource_config_compliance_by_rule(*,resource_id, config_rule_name):
+# def get_resource_config_compliance_by_rule(*,resource_id, config_rule_name):
     
-    print('begin get_resource_config_compliance_by_rule')
+#     print('begin get_resource_config_compliance_by_rule')
     
-    try:
-        r = config.get_compliance_details_by_config_rule(
-            ConfigRuleName = config_rule_name,
-            ComplianceTypes=[
-                'COMPLIANT',
-                'NON_COMPLIANT',
-                'NOT_APPLICABLE'
-            ],
-            Limit = 100 #Max
-        )
-    except ClientError as e:
-        print(f"ClientError\n{e}")
-        raise
-    else:
-        print(r)
+#     try:
+#         r = config.get_compliance_details_by_config_rule(
+#             ConfigRuleName = config_rule_name,
+#             ComplianceTypes=[
+#                 'COMPLIANT',
+#                 'NON_COMPLIANT',
+#                 'NOT_APPLICABLE'
+#             ],
+#             Limit = 100 #Max
+#         )
+#     except ClientError as e:
+#         print(f"ClientError\n{e}")
+#         raise
+#     else:
+#         print(r)
         
-        evaluation_results = r['EvaluationResults']
+#         evaluation_results = r['EvaluationResults']
         
-        print(f'evaluation_results\n{evaluation_results}')
+#         print(f'evaluation_results\n{evaluation_results}')
         
-        evaluation_results = [i['ComplianceType'] for i in evaluation_results if i['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'] == resource_id]
+#         evaluation_results = [i['ComplianceType'] for i in evaluation_results if i['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'] == resource_id]
         
-        try:
+#         try:
             
-            evaluation_result = evaluation_results[0]
+#             evaluation_result = evaluation_results[0]
         
-        except IndexError:
+#         except IndexError:
             
-            print('NoMatchingEvaluationResults')
-            return None
-            # raise NoMatchingEvaluationResults
+#             print('NoMatchingEvaluationResults')
+#             return None
+#             # raise NoMatchingEvaluationResults
         
-        else:
+#         else:
             
-            print(f'evaluation_result:\n{evaluation_result}')
+#             print(f'evaluation_result:\n{evaluation_result}')
     
-            return evaluation_result == 'COMPLIANT'
+#             return evaluation_result == 'COMPLIANT'
 
 
 def lambda_handler(event, context):
@@ -103,17 +103,15 @@ def lambda_handler(event, context):
 
     print(event)
     
-    consumer_metadata = event['ConsumerMetadata']
-
-    print(f'consumer_metadata\n{consumer_metadata}')
+    config_event = event['ConfigEvent']
     
-    resource_type = consumer_metadata['ResourceType']
+    invoking_event = json.loads(config_event["invokingEvent"])
     
-    resource_id = consumer_metadata['ResourceId']
+    resource_id = invoking_event['configurationItem']['resourceId']
     
-    config_rule_name = consumer_metadata['ConfigRuleName']
+    resource_type = invoking_event['configurationItem']['resourceType']
     
-    # result_token = consumer_metadata['ResultToken']
+    config_rule_name = config_event['configRuleName']
     
     compliance =  get_resource_config_compliance_by_resource(
         resource_type = resource_type,
@@ -121,10 +119,7 @@ def lambda_handler(event, context):
         config_rule_name = config_rule_name,
     )
     
-    get_resource_config_compliance_by_rule(
-        resource_id = resource_id,
-        config_rule_name = config_rule_name,
-    )
+    # get_resource_config_compliance_by_rule(resource_id = resource_id,config_rule_name = config_rule_name)
     
     expected_final_status = event['ExpectedFinalStatusIsCompliant']
     
@@ -143,5 +138,5 @@ def lambda_handler(event, context):
             print(f'{expected_final_status} == {compliance}')
             
     return {
-        "ResourceConfigIsCompliant":compliance
+        "ResourceIsCompliant":compliance
     }
