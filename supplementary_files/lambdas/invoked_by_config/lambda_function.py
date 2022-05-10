@@ -1,8 +1,16 @@
 import json
-import boto3
 import os
+import re
+
+import boto3
 from botocore.exceptions import ClientError
-from datetime import datetime
+
+import requests
+from aws_requests_auth.boto_utils import BotoAWSRequestsAuth
+
+session = boto3.session.Session()
+region = session.region_name
+account_id = boto3.client('sts').get_caller_identity().get('Account')
 
 sfn = boto3.client("stepfunctions")
 s3 = boto3.client("s3")
@@ -34,20 +42,20 @@ def put_object(bucket,key,object_:dict):
 class SimpleControlBrokerClient():
     def __init__(self,*,
         invoke_url,
-        input_bucket,
+        input_analyzed,
         input_object:dict,
     ):
         
         self.invoke_url = invoke_url
-        self.input_bucket = input_bucket
+        self.input_analyzed = input_analyzed
         self.input_object = input_object
         
         
     def put_input(self):
         
         put = put_object(
-            bucket=self.input_bucket,
-            key='SimpleControlBrokerClient-input.json',
+            bucket=self.input_analyzed['Bucket'],
+            key=self.input_analyzed['Key'],
             object_ = self.input_object
         )
         
@@ -148,7 +156,7 @@ def lambda_handler(event, context):
     
     s = SimpleControlBrokerClient(
         invoke_url = invoke_url,
-        input_bucket = input_analyzed['Bucket'],
+        input_analyzed = input_analyzed,
         input_object = cb_input_object
     )
     

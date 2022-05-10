@@ -60,8 +60,10 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         
         # toggle content-based deduplication to trigger change tracked by Config
         
+        toggled_boolean_path='./dev/tracked_by_config/toggled_boolean.json'
+        
         # DEV: ToggledBoolean alternates upon every deploy
-        with open('./dev/tracked_by_config/toggled_boolean.json','r') as f:
+        with open(toggled_boolean_path,'r') as f:
             toggled_boolean = json.loads(f.read())['ToggledBoolean']
         
         aws_sqs.Queue(
@@ -83,12 +85,12 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         )
         
         # DEV: ToggledBoolean alternates upon every deploy
-        with open('./dev/tracked_by_config/toggled_boolean.json','w') as f:
+        with open(toggled_boolean_path,'w') as f:
             json.dump({'ToggledBoolean':not toggled_boolean},f)
         
     def utils(self):
         
-        self.bucket_config_events_raw_inputs = aws_s3.Bucket(
+        self.bucket_config_event_raw_inputs = aws_s3.Bucket(
             self,
             "ConfigEventsRawInput",
             block_public_access=aws_s3.BlockPublicAccess.BLOCK_ALL,
@@ -99,115 +101,81 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         # Give read permission to the control broker on the Consumer Inputs we store
         # and pass to the control broker
         for control_broker_principal_arn in self.control_broker_input_reader_arns:
-            self.bucket_config_event_payloads.grant_read(
+            self.bucket_config_event_raw_inputs.grant_read(
                 aws_iam.ArnPrincipal(control_broker_principal_arn)
             )
     
-    # def config_event_processing_sfn_lambdas(self):
+    def config_event_processing_sfn_lambdas(self):
 
-    #     # sign apigw request
+        # object exists
         
-    #     self.lambda_sign_apigw_request = aws_lambda_python_alpha.PythonFunction(
-    #         self,
-    #         "SignApigwRequestVAlpha",
-    #         entry="./supplementary_files/lambdas/sign_apigw_request",
-    #         runtime= aws_lambda.Runtime.PYTHON_3_9,
-    #         index="lambda_function.py",
-    #         handler="lambda_handler",
-    #         timeout=Duration.seconds(60),
-    #         memory_size=1024,
-    #         environment = {
-    #             "ApigwInvokeUrl" : self.control_broker_apigw_url,
-    #             "ConfigEventPayloadsBucket": self.bucket_config_event_payloads.bucket_name
-    #         },
-    #         layers=[
-    #             aws_lambda_python_alpha.PythonLayerVersion(
-    #                 self,
-    #                 "aws_requests_auth",
-    #                 entry="./supplementary_files/lambda_layers/aws_requests_auth",
-    #                 compatible_runtimes=[
-    #                     aws_lambda.Runtime.PYTHON_3_9
-    #                 ]
-    #             ),
-    #             aws_lambda_python_alpha.PythonLayerVersion(self,
-    #                 "requests",
-    #                 entry="./supplementary_files/lambda_layers/requests",
-    #                 compatible_runtimes=[
-    #                     aws_lambda.Runtime.PYTHON_3_9
-    #                 ]
-    #             ),
-    #         ]
-    #     )
+        self.lambda_object_exists = aws_lambda.Function(
+            self,
+            "ObjectExists",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset(
+                "./supplementary_files/lambdas/s3_head_object"
+            ),
+        )
         
-    #     # object exists
+        # s3 select
         
-    #     self.lambda_object_exists = aws_lambda.Function(
-    #         self,
-    #         "ObjectExists",
-    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
-    #         handler="lambda_function.lambda_handler",
-    #         timeout=Duration.seconds(60),
-    #         memory_size=1024,
-    #         code=aws_lambda.Code.from_asset(
-    #             "./supplementary_files/lambdas/s3_head_object"
-    #         ),
-    #     )
+        self.lambda_s3_select = aws_lambda.Function(
+            self,
+            "S3Select",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/s3_select"),
+        )
         
-    #     # s3 select
+        # put evaluations
         
-    #     self.lambda_s3_select = aws_lambda.Function(
-    #         self,
-    #         "S3Select",
-    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
-    #         handler="lambda_function.lambda_handler",
-    #         timeout=Duration.seconds(60),
-    #         memory_size=1024,
-    #         code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/s3_select"),
-    #     )
+        self.lambda_put_evaluations = aws_lambda.Function(
+            self,
+            "PutEvaluations",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/put_evaluations"),
+        )
         
-    #     # put evaluations
+        self.lambda_put_evaluations.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "config:PutEvaluations",
+                ],
+                resources=["*"]
+            )
+        )
         
-    #     self.lambda_put_evaluations = aws_lambda.Function(
-    #         self,
-    #         "PutEvaluations",
-    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
-    #         handler="lambda_function.lambda_handler",
-    #         timeout=Duration.seconds(60),
-    #         memory_size=1024,
-    #         code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/put_evaluations"),
-    #     )
+        # get config compliance
         
-    #     self.lambda_put_evaluations.role.add_to_policy(
-    #         aws_iam.PolicyStatement(
-    #             actions=[
-    #                 "config:PutEvaluations",
-    #             ],
-    #             resources=["*"]
-    #         )
-    #     )
+        self.lambda_get_resource_config_compliance = aws_lambda.Function(
+            self,
+            "GetResourceConfigCompliance",
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler="lambda_function.lambda_handler",
+            timeout=Duration.seconds(60),
+            memory_size=1024,
+            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/get_resource_config_compliance"),
+        )
         
-    #     # get config compliance
-        
-    #     self.lambda_get_resource_config_compliance = aws_lambda.Function(
-    #         self,
-    #         "GetResourceConfigCompliance",
-    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
-    #         handler="lambda_function.lambda_handler",
-    #         timeout=Duration.seconds(60),
-    #         memory_size=1024,
-    #         code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/get_resource_config_compliance"),
-    #     )
-        
-    #     self.lambda_get_resource_config_compliance.role.add_to_policy(
-    #         aws_iam.PolicyStatement(
-    #             actions=[
-    #                 "config:GetComplianceDetailsByResource",
-    #                 "config:GetComplianceDetailsByConfigRule",
-    #                 "config:GetComplianceDetailsBy*",
-    #             ],
-    #             resources=["*"]
-    #         )
-    #     )
+        self.lambda_get_resource_config_compliance.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "config:GetComplianceDetailsByResource",
+                    "config:GetComplianceDetailsByConfigRule",
+                    "config:GetComplianceDetailsBy*",
+                ],
+                resources=["*"]
+            )
+        )
 
     def config_event_processing_sfn(self):
         
@@ -227,7 +195,6 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             aws_iam.PolicyStatement(
                 actions=["lambda:InvokeFunction"],
                 resources=[
-                    self.lambda_sign_apigw_request.function_arn,
                     self.lambda_object_exists.function_arn,
                     self.lambda_s3_select.function_arn,
                     self.lambda_put_evaluations.function_arn,
@@ -292,264 +259,269 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 "StartAt": "GetResourceConfigComplianceInitial",
                 "States": {
                     "GetResourceConfigComplianceInitial":{
-                        "Type": "Task",
-                        "Next": "SignApigwRequest",
-                        "ResultPath": "$.GetResourceConfigComplianceInitial",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                            "Payload": {
-                                "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-                                "ExpectedFinalStatusIsCompliant": None
-                            }
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                    },
-                    "SignApigwRequest": {
-                        "Type": "Task",
-                        "Next": "CheckResultsReportExists",
-                        "ResultPath": "$.SignApigwRequest",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_sign_apigw_request.function_name,
-                            "Payload.$": "$"
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                    },
-                    "CheckResultsReportExists": {
-                        "Type": "Task",
-                        "Next": "GetResultsReportIsCompliantBoolean",
-                        "ResultPath": "$.CheckResultsReportExists",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_object_exists.function_name,
-                            "Payload": {
-                                "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri"
-                            }
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                        "Retry": [
-                            {
-                                "ErrorEquals": [
-                                    "ObjectDoesNotExistException"
-                                ],
-                                "IntervalSeconds": 1,
-                                "MaxAttempts": 6,
-                                "BackoffRate": 2.0
-                            }
-                        ],
-                        "Catch": [
-                            {
-                                "ErrorEquals":[
-                                    "States.ALL"
-                                ],
-                                "Next": "ResultsReportDoesNotYetExist"
-                            }
-                        ]
-                    },
-                    "ResultsReportDoesNotYetExist": {
-                        "Type":"Fail"
-                    },
-                    "GetResultsReportIsCompliantBoolean": {
-                        "Type": "Task",
-                        "Next": "ChoiceIsComplaint",
-                        "ResultPath": "$.GetResultsReportIsCompliantBoolean",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_s3_select.function_name,
-                            "Payload": {
-                                "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri",
-                                "Expression": "SELECT * from S3Object s",
-                            },
-                        },
-                        "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
-                    },
-                    "ChoiceIsComplaint": {
-                        "Type":"Choice",
-                        # "Default":"PutEvaluationsNonCompliant",
-                        "Choices":[
-                            {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
-                                "BooleanEquals":True,
-                                "Next":"PutEvaluationsCompliant"
-                            },
-                            {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
-                                "BooleanEquals":False,
-                                "Next":"PutEvaluationsNonCompliant"
-                            }
-                        ]
-                    },
-                    "PutEvaluationsCompliant": {
-                        "Type": "Task",
-                        "Next": "ChoiceNowGood",
-                        "ResultPath": "$.PutEvaluationsCompliant",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_put_evaluations.function_name,
-                            "Payload": {
-                                "Compliance": True,
-                                "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
-                                "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
-                                "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
-                            },
-                        },
-                        "ResultSelector": {"Payload.$": "$.Payload"},
-                    },
-                    "ChoiceNowGood": {
-                        "Type":"Choice",
-                        # "Default":"WasBadNowGood",
-                        "Choices":[
-                            {
-                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
-                                "BooleanEquals": True,
-                                "Next":"WasGoodStillGood"
-                            },
-                            {
-                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
-                                "BooleanEquals": False,
-                                "Next":"WasBadNowGood"
-                            }
-                        ]
-                    },
-                    "WasGoodStillGood": {
-                        "Type":"Pass",
-                        "Next":"Compliant",
-                    },
-                    "WasBadNowGood": {
-                        "Type":"Pass",
-                        "Next":"ConfirmBadToGood",
-                    },
-                    "ConfirmBadToGood":{
-                        "Type": "Task",
-                        "Next": "Compliant",
-                        "ResultPath": "$.GetResourceConfigComplianceInitial",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                            "Payload": {
-                                "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-                                "ExpectedFinalStatusIsCompliant": True
-
-                            }
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                        "Retry": [
-                            {
-                                "ErrorEquals": [
-                                    "ConfigComplianceStatusIsNotAsExpectedException"
-                                ],
-                                "IntervalSeconds": 1,
-                                "MaxAttempts": 8,
-                                "BackoffRate": 2.0
-                            }
-                        ],
-                        "Catch": [
-                            {
-                                "ErrorEquals":[
-                                    "States.ALL"
-                                ],
-                                "Next": "CannotConfirmBadToGood"
-                            }
-                        ]
-                    },
-                    "CannotConfirmBadToGood": {
-                        "Type":"Fail"
-                    },
-                    "PutEvaluationsNonCompliant": {
-                        "Type": "Task",
-                        "Next": "ChoiceNowBad",
-                        "ResultPath": "$.PutEvaluationsCompliant",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_put_evaluations.function_name,
-                            "Payload": {
-                                "Compliance": False,
-                                "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
-                                "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
-                                "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
-                            },
-                        },
-                        "ResultSelector": {"Payload.$": "$.Payload"},
-                    },
-                    "ChoiceNowBad": {
-                        "Type":"Choice",
-                        # "Default":"WasGoodNowBad",
-                        "Choices":[
-                            {
-                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
-                                "BooleanEquals":False,
-                                "Next":"WasBadStillBad"
-                            },
-                            {
-                                "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
-                                "BooleanEquals":True,
-                                "Next":"WasGoodNowBad"
-                            }
-                        ]
-                    },
-                    "WasBadStillBad": {
-                        "Type":"Pass",
-                        "Next":"NonCompliant",
-                    },
-                    "WasGoodNowBad": {
-                        "Type":"Pass",
-                        "Next":"ConfirmGoodToBad",
-                    },
-                    "ConfirmGoodToBad":{
-                        "Type": "Task",
-                        "Next": "NonCompliant",
-                        "ResultPath": "$.GetResourceConfigComplianceInitial",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                            "Payload": {
-                                "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-                                "ExpectedFinalStatusIsCompliant": False
-                            }
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                        "Retry": [
-                            {
-                                "ErrorEquals": [
-                                    "ConfigComplianceStatusIsNotAsExpectedException"
-                                ],
-                                "IntervalSeconds": 1,
-                                "MaxAttempts": 8,
-                                "BackoffRate": 2.0
-                            }
-                        ],
-                        "Catch": [
-                            {
-                                "ErrorEquals":[
-                                    "States.ALL"
-                                ],
-                                "Next": "CannotConfirmGoodToBad"
-                            }
-                        ]
-                    },
-                    "CannotConfirmGoodToBad": {
-                        "Type":"Fail"
-                    },
-                    "Compliant": {
-                        "Type":"Succeed"
-                    },
-                    "NonCompliant": {
-                        "Type":"Succeed"
+                        "Type": "Succeed",
                     }
                 }
-            }),
+            })
         )
+        #                 "Type": "Task",
+        #                 "Next": "SignApigwRequest",
+        #                 "ResultPath": "$.GetResourceConfigComplianceInitial",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+        #                     "Payload": {
+        #                         "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+        #                         "ExpectedFinalStatusIsCompliant": None
+        #                     }
+        #                 },
+        #                 "ResultSelector": {
+        #                     "Payload.$": "$.Payload"
+        #                 },
+        #             },
+        #             "SignApigwRequest": {
+        #                 "Type": "Task",
+        #                 "Next": "CheckResultsReportExists",
+        #                 "ResultPath": "$.SignApigwRequest",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_sign_apigw_request.function_name,
+        #                     "Payload.$": "$"
+        #                 },
+        #                 "ResultSelector": {
+        #                     "Payload.$": "$.Payload"
+        #                 },
+        #             },
+        #             "CheckResultsReportExists": {
+        #                 "Type": "Task",
+        #                 "Next": "GetResultsReportIsCompliantBoolean",
+        #                 "ResultPath": "$.CheckResultsReportExists",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_object_exists.function_name,
+        #                     "Payload": {
+        #                         "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri"
+        #                     }
+        #                 },
+        #                 "ResultSelector": {
+        #                     "Payload.$": "$.Payload"
+        #                 },
+        #                 "Retry": [
+        #                     {
+        #                         "ErrorEquals": [
+        #                             "ObjectDoesNotExistException"
+        #                         ],
+        #                         "IntervalSeconds": 1,
+        #                         "MaxAttempts": 6,
+        #                         "BackoffRate": 2.0
+        #                     }
+        #                 ],
+        #                 "Catch": [
+        #                     {
+        #                         "ErrorEquals":[
+        #                             "States.ALL"
+        #                         ],
+        #                         "Next": "ResultsReportDoesNotYetExist"
+        #                     }
+        #                 ]
+        #             },
+        #             "ResultsReportDoesNotYetExist": {
+        #                 "Type":"Fail"
+        #             },
+        #             "GetResultsReportIsCompliantBoolean": {
+        #                 "Type": "Task",
+        #                 "Next": "ChoiceIsComplaint",
+        #                 "ResultPath": "$.GetResultsReportIsCompliantBoolean",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_s3_select.function_name,
+        #                     "Payload": {
+        #                         "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri",
+        #                         "Expression": "SELECT * from S3Object s",
+        #                     },
+        #                 },
+        #                 "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
+        #             },
+        #             "ChoiceIsComplaint": {
+        #                 "Type":"Choice",
+        #                 # "Default":"PutEvaluationsNonCompliant",
+        #                 "Choices":[
+        #                     {
+        #                         "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
+        #                         "BooleanEquals":True,
+        #                         "Next":"PutEvaluationsCompliant"
+        #                     },
+        #                     {
+        #                         "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
+        #                         "BooleanEquals":False,
+        #                         "Next":"PutEvaluationsNonCompliant"
+        #                     }
+        #                 ]
+        #             },
+        #             "PutEvaluationsCompliant": {
+        #                 "Type": "Task",
+        #                 "Next": "ChoiceNowGood",
+        #                 "ResultPath": "$.PutEvaluationsCompliant",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_put_evaluations.function_name,
+        #                     "Payload": {
+        #                         "Compliance": True,
+        #                         "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
+        #                         "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
+        #                         "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
+        #                     },
+        #                 },
+        #                 "ResultSelector": {"Payload.$": "$.Payload"},
+        #             },
+        #             "ChoiceNowGood": {
+        #                 "Type":"Choice",
+        #                 # "Default":"WasBadNowGood",
+        #                 "Choices":[
+        #                     {
+        #                         "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+        #                         "BooleanEquals": True,
+        #                         "Next":"WasGoodStillGood"
+        #                     },
+        #                     {
+        #                         "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+        #                         "BooleanEquals": False,
+        #                         "Next":"WasBadNowGood"
+        #                     }
+        #                 ]
+        #             },
+        #             "WasGoodStillGood": {
+        #                 "Type":"Pass",
+        #                 "Next":"Compliant",
+        #             },
+        #             "WasBadNowGood": {
+        #                 "Type":"Pass",
+        #                 "Next":"ConfirmBadToGood",
+        #             },
+        #             "ConfirmBadToGood":{
+        #                 "Type": "Task",
+        #                 "Next": "Compliant",
+        #                 "ResultPath": "$.GetResourceConfigComplianceInitial",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+        #                     "Payload": {
+        #                         "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+        #                         "ExpectedFinalStatusIsCompliant": True
+
+        #                     }
+        #                 },
+        #                 "ResultSelector": {
+        #                     "Payload.$": "$.Payload"
+        #                 },
+        #                 "Retry": [
+        #                     {
+        #                         "ErrorEquals": [
+        #                             "ConfigComplianceStatusIsNotAsExpectedException"
+        #                         ],
+        #                         "IntervalSeconds": 1,
+        #                         "MaxAttempts": 8,
+        #                         "BackoffRate": 2.0
+        #                     }
+        #                 ],
+        #                 "Catch": [
+        #                     {
+        #                         "ErrorEquals":[
+        #                             "States.ALL"
+        #                         ],
+        #                         "Next": "CannotConfirmBadToGood"
+        #                     }
+        #                 ]
+        #             },
+        #             "CannotConfirmBadToGood": {
+        #                 "Type":"Fail"
+        #             },
+        #             "PutEvaluationsNonCompliant": {
+        #                 "Type": "Task",
+        #                 "Next": "ChoiceNowBad",
+        #                 "ResultPath": "$.PutEvaluationsCompliant",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_put_evaluations.function_name,
+        #                     "Payload": {
+        #                         "Compliance": False,
+        #                         "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
+        #                         "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
+        #                         "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
+        #                     },
+        #                 },
+        #                 "ResultSelector": {"Payload.$": "$.Payload"},
+        #             },
+        #             "ChoiceNowBad": {
+        #                 "Type":"Choice",
+        #                 # "Default":"WasGoodNowBad",
+        #                 "Choices":[
+        #                     {
+        #                         "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+        #                         "BooleanEquals":False,
+        #                         "Next":"WasBadStillBad"
+        #                     },
+        #                     {
+        #                         "Variable":"$.GetResourceConfigComplianceInitial.Payload.ResourceConfigIsCompliant",
+        #                         "BooleanEquals":True,
+        #                         "Next":"WasGoodNowBad"
+        #                     }
+        #                 ]
+        #             },
+        #             "WasBadStillBad": {
+        #                 "Type":"Pass",
+        #                 "Next":"NonCompliant",
+        #             },
+        #             "WasGoodNowBad": {
+        #                 "Type":"Pass",
+        #                 "Next":"ConfirmGoodToBad",
+        #             },
+        #             "ConfirmGoodToBad":{
+        #                 "Type": "Task",
+        #                 "Next": "NonCompliant",
+        #                 "ResultPath": "$.GetResourceConfigComplianceInitial",
+        #                 "Resource": "arn:aws:states:::lambda:invoke",
+        #                 "Parameters": {
+        #                     "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+        #                     "Payload": {
+        #                         "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
+        #                         "ExpectedFinalStatusIsCompliant": False
+        #                     }
+        #                 },
+        #                 "ResultSelector": {
+        #                     "Payload.$": "$.Payload"
+        #                 },
+        #                 "Retry": [
+        #                     {
+        #                         "ErrorEquals": [
+        #                             "ConfigComplianceStatusIsNotAsExpectedException"
+        #                         ],
+        #                         "IntervalSeconds": 1,
+        #                         "MaxAttempts": 8,
+        #                         "BackoffRate": 2.0
+        #                     }
+        #                 ],
+        #                 "Catch": [
+        #                     {
+        #                         "ErrorEquals":[
+        #                             "States.ALL"
+        #                         ],
+        #                         "Next": "CannotConfirmGoodToBad"
+        #                     }
+        #                 ]
+        #             },
+        #             "CannotConfirmGoodToBad": {
+        #                 "Type":"Fail"
+        #             },
+        #             "Compliant": {
+        #                 "Type":"Succeed"
+        #             },
+        #             "NonCompliant": {
+        #                 "Type":"Succeed"
+        #             }
+        #         }
+        #     }),
+        # )
 
         self.sfn_config_event_processing.node.add_dependency(self.role_config_event_processing_sfn)
     
@@ -563,7 +535,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             environment={
                 "ControlBrokerInvokeUrl": self.control_broker_apigw_url,
-                "ConfigEventsRawInputBucket":self.bucket_config_events_raw_inputs.bucket_name
+                "ConfigEventsRawInputBucket":self.bucket_config_event_raw_inputs.bucket_name,
+                "ConfigEventProcessingSfnArn": self.sfn_config_event_processing.attr_arn
             },
             layers=[
                 self.layers['requests'],
@@ -588,7 +561,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     "s3:PutObject",
                 ],
                 resources=[
-                    self.bucket_config_events_raw_inputs.arn_for_objects("*"),
+                    self.bucket_config_event_raw_inputs.arn_for_objects("*"),
                 ],
             )
         )
