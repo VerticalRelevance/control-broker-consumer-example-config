@@ -125,6 +125,17 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             )
         )
 
+        self.lambda_sign_apigw_request.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                ],
+                resources=[
+                    self.bucket_config_event_raw_inputs.bucket_arn,
+                    self.bucket_config_event_raw_inputs.arn_for_objects("*"),
+                ],
+            )
+        )
 
         # object exists
         
@@ -218,6 +229,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     self.lambda_s3_select.function_arn,
                     self.lambda_put_evaluations.function_arn,
                     self.lambda_get_resource_config_compliance.function_arn,
+                    self.lambda_sign_apigw_request.function_arn,
                 ],
             )
         )
@@ -275,23 +287,42 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 level="ALL",
             ),
             definition_string=json.dumps({
-                "StartAt": "GetConfigEvent",
+                "StartAt": "ParseInput",
                 "States": {
-                    "GetConfigEvent": {
+                    "ParseInput": {
+                        "Type":"Pass",
+                        "Next":"SignApigwRequest",
+                        "Parameters": {
+                            "InvokingEvent.$":"States.StringToJson($.invokingEvent)",
+                            "ConfigEvent.$":"$"
+                        }
+                    },
+                    "SignApigwRequest": {
                         "Type": "Task",
                         "End":True,
-                        "ResultPath": "$.GetConfigEvent",
+                        "ResultPath": "$.SignApigwRequest",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
-                            "FunctionName": self.lambda_s3_select.function_name,
-                            "Payload": {
-                                "Bucket.$":"$.Request.Content.Input.Bucket",
-                                "Key.$":"$.Request.Content.Input.Key",
-                                "Expression": "SELECT * from S3Object s",
-                            },
+                            "FunctionName": self.lambda_sign_apigw_request.function_name,
+                            "Payload.$": "$.ConfigEvent"
                         },
-                        "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
+                        "ResultSelector": {"Payload.$": "$.Payload"},
                     },
+                    # "GetConfigEvent": {
+                    #     "Type": "Task",
+                    #     "End":True,
+                    #     "ResultPath": "$.GetConfigEvent",
+                    #     "Resource": "arn:aws:states:::lambda:invoke",
+                    #     "Parameters": {
+                    #         "FunctionName": self.lambda_s3_select.function_name,
+                    #         "Payload": {
+                    #             "Bucket.$":"$.Request.Content.Input.Bucket",
+                    #             "Key.$":"$.Request.Content.Input.Key",
+                    #             "Expression": "SELECT * from S3Object s",
+                    #         },
+                    #     },
+                    #     "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
+                    # },
                     
                     # "GetResourceConfigComplianceInitial":{
                     #     "Type": "Task",

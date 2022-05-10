@@ -34,12 +34,28 @@ def put_object(bucket,key,object_:dict):
     
 def lambda_handler(event,context):
     
-    # invoked_by_key = f'{config_rule_name}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
-
-    invoked_by_key = os.environ['AWS_LAMBDA_FUNCTION_NAME']
-
     invoke_url = os.environ['ControlBrokerInvokeUrl']
     
+    invoking_event = json.loads(event["invokingEvent"])
+    print(f"invoking_event:\n{invoking_event}")
+
+    configuration_item = invoking_event["configurationItem"]
+    print(f"configuration_item:\n{configuration_item}")
+
+    resource_type = configuration_item["resourceType"]
+    print(f"resource_type:\n{resource_type}")
+
+    resource_id = configuration_item["resourceId"]
+    print(f"resource_id:\n{resource_id}")
+
+    result_token = event["resultToken"]
+    print(f"result_token:\n{result_token}")
+    
+    config_rule_name = event["configRuleName"]
+    print(f"config_rule_name:\n{config_rule_name}")
+    
+    invoked_by_key = f'{config_rule_name}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
+
     input_analyzed = {
         "Bucket":os.environ['ConfigEventsRawInputBucket'],
         "Key":invoked_by_key
@@ -58,7 +74,6 @@ def lambda_handler(event,context):
         "Input": input_analyzed
     }
     
-        
     def get_host(full_invoke_url):
         m = re.search('https://(.*)/.*',full_invoke_url)
         return m.group(1)
