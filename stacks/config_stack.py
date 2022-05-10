@@ -103,111 +103,111 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 aws_iam.ArnPrincipal(control_broker_principal_arn)
             )
     
-    def config_event_processing_sfn_lambdas(self):
+    # def config_event_processing_sfn_lambdas(self):
 
-        # sign apigw request
+    #     # sign apigw request
         
-        self.lambda_sign_apigw_request = aws_lambda_python_alpha.PythonFunction(
-            self,
-            "SignApigwRequestVAlpha",
-            entry="./supplementary_files/lambdas/sign_apigw_request",
-            runtime= aws_lambda.Runtime.PYTHON_3_9,
-            index="lambda_function.py",
-            handler="lambda_handler",
-            timeout=Duration.seconds(60),
-            memory_size=1024,
-            environment = {
-                "ApigwInvokeUrl" : self.control_broker_apigw_url,
-                "ConfigEventPayloadsBucket": self.bucket_config_event_payloads.bucket_name
-            },
-            layers=[
-                aws_lambda_python_alpha.PythonLayerVersion(
-                    self,
-                    "aws_requests_auth",
-                    entry="./supplementary_files/lambda_layers/aws_requests_auth",
-                    compatible_runtimes=[
-                        aws_lambda.Runtime.PYTHON_3_9
-                    ]
-                ),
-                aws_lambda_python_alpha.PythonLayerVersion(self,
-                    "requests",
-                    entry="./supplementary_files/lambda_layers/requests",
-                    compatible_runtimes=[
-                        aws_lambda.Runtime.PYTHON_3_9
-                    ]
-                ),
-            ]
-        )
+    #     self.lambda_sign_apigw_request = aws_lambda_python_alpha.PythonFunction(
+    #         self,
+    #         "SignApigwRequestVAlpha",
+    #         entry="./supplementary_files/lambdas/sign_apigw_request",
+    #         runtime= aws_lambda.Runtime.PYTHON_3_9,
+    #         index="lambda_function.py",
+    #         handler="lambda_handler",
+    #         timeout=Duration.seconds(60),
+    #         memory_size=1024,
+    #         environment = {
+    #             "ApigwInvokeUrl" : self.control_broker_apigw_url,
+    #             "ConfigEventPayloadsBucket": self.bucket_config_event_payloads.bucket_name
+    #         },
+    #         layers=[
+    #             aws_lambda_python_alpha.PythonLayerVersion(
+    #                 self,
+    #                 "aws_requests_auth",
+    #                 entry="./supplementary_files/lambda_layers/aws_requests_auth",
+    #                 compatible_runtimes=[
+    #                     aws_lambda.Runtime.PYTHON_3_9
+    #                 ]
+    #             ),
+    #             aws_lambda_python_alpha.PythonLayerVersion(self,
+    #                 "requests",
+    #                 entry="./supplementary_files/lambda_layers/requests",
+    #                 compatible_runtimes=[
+    #                     aws_lambda.Runtime.PYTHON_3_9
+    #                 ]
+    #             ),
+    #         ]
+    #     )
         
-        # object exists
+    #     # object exists
         
-        self.lambda_object_exists = aws_lambda.Function(
-            self,
-            "ObjectExists",
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
-            handler="lambda_function.lambda_handler",
-            timeout=Duration.seconds(60),
-            memory_size=1024,
-            code=aws_lambda.Code.from_asset(
-                "./supplementary_files/lambdas/s3_head_object"
-            ),
-        )
+    #     self.lambda_object_exists = aws_lambda.Function(
+    #         self,
+    #         "ObjectExists",
+    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
+    #         handler="lambda_function.lambda_handler",
+    #         timeout=Duration.seconds(60),
+    #         memory_size=1024,
+    #         code=aws_lambda.Code.from_asset(
+    #             "./supplementary_files/lambdas/s3_head_object"
+    #         ),
+    #     )
         
-        # s3 select
+    #     # s3 select
         
-        self.lambda_s3_select = aws_lambda.Function(
-            self,
-            "S3Select",
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
-            handler="lambda_function.lambda_handler",
-            timeout=Duration.seconds(60),
-            memory_size=1024,
-            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/s3_select"),
-        )
+    #     self.lambda_s3_select = aws_lambda.Function(
+    #         self,
+    #         "S3Select",
+    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
+    #         handler="lambda_function.lambda_handler",
+    #         timeout=Duration.seconds(60),
+    #         memory_size=1024,
+    #         code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/s3_select"),
+    #     )
         
-        # put evaluations
+    #     # put evaluations
         
-        self.lambda_put_evaluations = aws_lambda.Function(
-            self,
-            "PutEvaluations",
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
-            handler="lambda_function.lambda_handler",
-            timeout=Duration.seconds(60),
-            memory_size=1024,
-            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/put_evaluations"),
-        )
+    #     self.lambda_put_evaluations = aws_lambda.Function(
+    #         self,
+    #         "PutEvaluations",
+    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
+    #         handler="lambda_function.lambda_handler",
+    #         timeout=Duration.seconds(60),
+    #         memory_size=1024,
+    #         code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/put_evaluations"),
+    #     )
         
-        self.lambda_put_evaluations.role.add_to_policy(
-            aws_iam.PolicyStatement(
-                actions=[
-                    "config:PutEvaluations",
-                ],
-                resources=["*"]
-            )
-        )
+    #     self.lambda_put_evaluations.role.add_to_policy(
+    #         aws_iam.PolicyStatement(
+    #             actions=[
+    #                 "config:PutEvaluations",
+    #             ],
+    #             resources=["*"]
+    #         )
+    #     )
         
-        # get config compliance
+    #     # get config compliance
         
-        self.lambda_get_resource_config_compliance = aws_lambda.Function(
-            self,
-            "GetResourceConfigCompliance",
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
-            handler="lambda_function.lambda_handler",
-            timeout=Duration.seconds(60),
-            memory_size=1024,
-            code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/get_resource_config_compliance"),
-        )
+    #     self.lambda_get_resource_config_compliance = aws_lambda.Function(
+    #         self,
+    #         "GetResourceConfigCompliance",
+    #         runtime=aws_lambda.Runtime.PYTHON_3_9,
+    #         handler="lambda_function.lambda_handler",
+    #         timeout=Duration.seconds(60),
+    #         memory_size=1024,
+    #         code=aws_lambda.Code.from_asset("./supplementary_files/lambdas/get_resource_config_compliance"),
+    #     )
         
-        self.lambda_get_resource_config_compliance.role.add_to_policy(
-            aws_iam.PolicyStatement(
-                actions=[
-                    "config:GetComplianceDetailsByResource",
-                    "config:GetComplianceDetailsByConfigRule",
-                    "config:GetComplianceDetailsBy*",
-                ],
-                resources=["*"]
-            )
-        )
+    #     self.lambda_get_resource_config_compliance.role.add_to_policy(
+    #         aws_iam.PolicyStatement(
+    #             actions=[
+    #                 "config:GetComplianceDetailsByResource",
+    #                 "config:GetComplianceDetailsByConfigRule",
+    #                 "config:GetComplianceDetailsBy*",
+    #             ],
+    #             resources=["*"]
+    #         )
+    #     )
 
     def config_event_processing_sfn(self):
         
@@ -569,6 +569,17 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 self.layers['requests'],
                 self.layers['aws_requests_auth']
             ]
+        )
+        
+        self.lambda_invoked_by_config.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "states:StartExecution",
+                ],
+                resources=[
+                    self.sfn_config_event_processing.attr_arn,
+                ],
+            )
         )
         
         self.lambda_invoked_by_config.role.add_to_policy(
