@@ -54,4 +54,4 @@ def lambda_handler(event,context):
         raise ObjectDoesNotExistException
     else:
         # return json.dumps(object_)
-        return object
+        return object_

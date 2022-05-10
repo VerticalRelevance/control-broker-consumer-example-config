@@ -154,17 +154,35 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 "./supplementary_files/lambdas/get_object"
             ),
         )
+        
+        # s3 select
+        
+        # self.lambda_s3_select = aws_lambda.Function(
+        #     self,
+        #     "S3Select",
+        #     runtime=aws_lambda.Runtime.PYTHON_3_9,
+        #     handler="lambda_function.lambda_handler",
+        #     timeout=Duration.seconds(60),
+        #     memory_size=1024,
+        #     code=aws_lambda.Code.from_asset(
+        #         "./supplementary_files/lambdas/s3_select"
+        #     ),
+        # )
        
-        # self.lambda_get_object.role.add_to_policy(
+        # self.lambda_s3_select.role.add_to_policy(
         #     aws_iam.PolicyStatement(
         #         actions=[
         #             "s3:GetObject",
-        #             "s3:Get*",
+        #             "s3:GetBucket",
+        #             "s3:List*",
         #         ],
-        #         resources=["*"],
+        #         resources=[
+        #             self.bucket_config_event_raw_inputs.bucket_arn,
+        #             self.bucket_config_event_raw_inputs.arn_for_objects("*"),
+        #         ],
         #     )
         # )
-        
+       
         # put evaluations
         
         self.lambda_put_evaluations = aws_lambda.Function(
@@ -231,6 +249,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     self.lambda_put_evaluations.function_arn,
                     self.lambda_get_resource_config_compliance.function_arn,
                     self.lambda_sign_apigw_request.function_arn,
+                    self.lambda_s3_select.function_arn,
                 ],
             )
         )
@@ -311,7 +330,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "GetResourceConfigComplianceInitial":{
                         "Type": "Task",
-                        "Next":"GetResultsReportIsCompliantBoolean", 
+                        "Next":"GetConfigEvent", 
                         "ResultPath": "$.GetResourceConfigComplianceInitial",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -367,7 +386,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Default":"PutEvaluationsIsCompliantFalse",
                         "Choices":[
                             {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.EvalEngineLambdalith.Evaluation.IsCompliant",
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
                                 "BooleanEquals":True,
                                 "Next":"PutEvaluationsIsCompliantTrue"
                             },
@@ -377,23 +396,21 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Type": "Succeed",
                     },
                     "PutEvaluationsIsCompliantFalse": {
-                        "Type": "Fail",
-                    }
-                    #     "Type": "Task",
-                    #     "End": True,
-                    #     "ResultPath": "$.PutEvaluationsIsCompliantTrue",
-                    #     "Resource": "arn:aws:states:::lambda:invoke",
-                    #     "Parameters": {
-                    #         "FunctionName": self.lambda_put_evaluations.function_name,
-                    #         "Payload": {
-                    #             "Compliance": True,
-                    #             "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
-                    #             "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
-                    #             "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
-                    #         },
-                    #     },
-                    #     "ResultSelector": {"Payload.$": "$.Payload"},
-                    # },
+                        "Type": "Task",
+                        "End": True,
+                        "ResultPath": "$.PutEvaluationsIsCompliantTrue",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_put_evaluations.function_name,
+                            "Payload": {
+                                "Compliance": True,
+                                "ConfigResultToken.$":"$.ConfigEvent.resultToken",
+                                "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
+                                "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
+                            },
+                        },
+                        "ResultSelector": {"Payload.$": "$.Payload"},
+                    },
                 }
             })
         )
