@@ -336,8 +336,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_object_exists.function_name,
                             "Payload": {
-                                "Bucket.$":"$.SignApigwRequest.Payload.Request.Content.Input.Bucket",
-                                "Key.$":"$.SignApigwRequest.Payload.Request.Content.Input.Key"
+                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.Raw",
+                                "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
                             }
                         },
                         "ResultSelector": {
@@ -349,7 +349,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                                     "ObjectDoesNotExistException"
                                 ],
                                 "IntervalSeconds": 1,
-                                "MaxAttempts": 6,
+                                "MaxAttempts": 8,
                                 "BackoffRate": 2.0
                             }
                         ],
@@ -366,41 +366,40 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Type":"Fail"
                     },
                     "GetResultsReportIsCompliantBoolean": {
+                        "Type": "Task",
+                        "Next": "ChoiceIsComplaint",
+                        "ResultPath": "$.GetResultsReportIsCompliantBoolean",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_s3_select.function_name,
+                            "Payload": {
+                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.OutputHandlers[0].AccessPointArn", # first output handler
+                                "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
+                                "Expression": "SELECT * from S3Object s"
+                            }
+                        },
+                        "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
+                    },
+                    "ChoiceIsComplaint": {
+                        "Type":"Choice",
+                        "Default":"IsCompliantFalse",
+                        "Choices":[
+                            {
+                                "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.EvalEngineLambdalith.Evaluation.IsCompliant",
+                                "BooleanEquals":True,
+                                "Next":"IsCompliantTrue"
+                            },
+                        ]
+                    },
+                    "IsCompliantTrue": {
                         "Type":"Succeed"
                     },
+                    "IsCompliantFalse": {
+                        "Type":"Fail"
+                    }
                 }
             })
         )
-        #             "GetResultsReportIsCompliantBoolean": {
-        #                 "Type": "Task",
-        #                 "Next": "ChoiceIsComplaint",
-        #                 "ResultPath": "$.GetResultsReportIsCompliantBoolean",
-        #                 "Resource": "arn:aws:states:::lambda:invoke",
-        #                 "Parameters": {
-        #                     "FunctionName": self.lambda_s3_select.function_name,
-        #                     "Payload": {
-        #                         "S3Uri.$":"$.SignApigwRequest.Payload.ControlBrokerRequestStatus.ResultsReportS3Uri",
-        #                         "Expression": "SELECT * from S3Object s",
-        #                     },
-        #                 },
-        #                 "ResultSelector": {"S3SelectResult.$": "$.Payload.Selected"},
-        #             },
-        #             "ChoiceIsComplaint": {
-        #                 "Type":"Choice",
-        #                 # "Default":"PutEvaluationsNonCompliant",
-        #                 "Choices":[
-        #                     {
-        #                         "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
-        #                         "BooleanEquals":True,
-        #                         "Next":"PutEvaluationsCompliant"
-        #                     },
-        #                     {
-        #                         "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.ControlBrokerResultsReport.Evaluation.IsCompliant",
-        #                         "BooleanEquals":False,
-        #                         "Next":"PutEvaluationsNonCompliant"
-        #                     }
-        #                 ]
-        #             },
         #             "PutEvaluationsCompliant": {
         #                 "Type": "Task",
         #                 "Next": "ChoiceNowGood",
