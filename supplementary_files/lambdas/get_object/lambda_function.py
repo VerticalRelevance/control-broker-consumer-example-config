@@ -40,8 +40,8 @@ def lambda_handler(event,context):
     
     print(event)
     
-    bucket = event['Bucket']
-    key = event['Key']
+    bucket = event.get('Bucket')
+    key = event.get('Key')
     
     if not bucket and not key:
         bucket, key = s3_uri_to_bucket_key(uri=event['S3Uri'])
@@ -53,4 +53,5 @@ def lambda_handler(event,context):
     if not object_:
         raise ObjectDoesNotExistException
     else:
-        return json.dumps(object_)
+        # return json.dumps(object_)
+        return object

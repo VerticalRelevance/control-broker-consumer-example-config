@@ -19,7 +19,6 @@ def get_host(*,full_invoke_url):
     return m.group(1)
 
 def put_object(bucket,key,object_:dict):
-    print(f'put_object\nbucket:\n{bucket}\nKey:\n{key}')
     try:
         r = s3.put_object(
             Bucket = bucket,
@@ -30,6 +29,7 @@ def put_object(bucket,key,object_:dict):
         print(f'ClientError:\n{e}')
         raise
     else:
+        print(f'no ClientError put_object\nbucket:\n{bucket}\nKey:\n{key}')
         return True
     
 def lambda_handler(event,context):

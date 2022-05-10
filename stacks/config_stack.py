@@ -154,14 +154,16 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 "./supplementary_files/lambdas/get_object"
             ),
         )
-        self.lambda_sign_apigw_request.role.add_to_policy(
-            aws_iam.PolicyStatement(
-                actions=[
-                    "s3:GetObject",
-                ],
-                resources=["*"],
-            )
-        )
+       
+        # self.lambda_get_object.role.add_to_policy(
+        #     aws_iam.PolicyStatement(
+        #         actions=[
+        #             "s3:GetObject",
+        #             "s3:Get*",
+        #         ],
+        #         resources=["*"],
+        #     )
+        # )
         
         # put evaluations
         
@@ -331,7 +333,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_get_object.function_name,
                             "Payload": {
-                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.OutputHandlers[0].AccessPointArn",
+                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.OutputHandlers[0].Bucket",
                                 "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
                             }
                         },
@@ -362,40 +364,39 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "ChoiceIsComplaint": {
                         "Type":"Choice",
-                        "Default":"IsCompliantFalse",
+                        "Default":"PutEvaluationsIsCompliantFalse",
                         "Choices":[
                             {
                                 "Variable":"$.GetResultsReportIsCompliantBoolean.S3SelectResult.EvalEngineLambdalith.Evaluation.IsCompliant",
                                 "BooleanEquals":True,
-                                "Next":"IsCompliantTrue"
+                                "Next":"PutEvaluationsIsCompliantTrue"
                             },
                         ]
                     },
-                    "IsCompliantTrue": {
-                        "Type":"Succeed"
+                    "PutEvaluationsIsCompliantTrue": {
+                        "Type": "Succeed",
                     },
-                    "IsCompliantFalse": {
-                        "Type":"Fail"
+                    "PutEvaluationsIsCompliantFalse": {
+                        "Type": "Fail",
                     }
+                    #     "Type": "Task",
+                    #     "End": True,
+                    #     "ResultPath": "$.PutEvaluationsIsCompliantTrue",
+                    #     "Resource": "arn:aws:states:::lambda:invoke",
+                    #     "Parameters": {
+                    #         "FunctionName": self.lambda_put_evaluations.function_name,
+                    #         "Payload": {
+                    #             "Compliance": True,
+                    #             "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
+                    #             "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
+                    #             "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
+                    #         },
+                    #     },
+                    #     "ResultSelector": {"Payload.$": "$.Payload"},
+                    # },
                 }
             })
         )
-        #             "PutEvaluationsCompliant": {
-        #                 "Type": "Task",
-        #                 "Next": "ChoiceNowGood",
-        #                 "ResultPath": "$.PutEvaluationsCompliant",
-        #                 "Resource": "arn:aws:states:::lambda:invoke",
-        #                 "Parameters": {
-        #                     "FunctionName": self.lambda_put_evaluations.function_name,
-        #                     "Payload": {
-        #                         "Compliance": True,
-        #                         "ConfigResultToken.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ConfigResultToken",
-        #                         "ResourceType.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceType",
-        #                         "ResourceId.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata.ResourceId",
-        #                     },
-        #                 },
-        #                 "ResultSelector": {"Payload.$": "$.Payload"},
-        #             },
         #             "ChoiceNowGood": {
         #                 "Type":"Choice",
         #                 # "Default":"WasBadNowGood",
