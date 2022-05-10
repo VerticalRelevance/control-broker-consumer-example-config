@@ -97,9 +97,8 @@ def get_resource_config_compliance_by_resource(*,resource_type,resource_id, conf
 
 def lambda_handler(event, context):
 
-
-    class ConfigComplianceStatusIsNotAsExpectedException(Exception):
-        pass
+    # class ConfigComplianceStatusIsNotAsExpectedException(Exception):
+    #     pass
 
     print(event)
     
@@ -119,24 +118,19 @@ def lambda_handler(event, context):
         config_rule_name = config_rule_name,
     )
     
+    print(f'compliance:\n{compliance}')
+    
     # get_resource_config_compliance_by_rule(resource_id = resource_id,config_rule_name = config_rule_name)
     
-    expected_final_status = event['ExpectedFinalStatusIsCompliant']
+    expected_compliance_status = event['ExpectedComplianceStatus']
     
-    print(f'expected_final_status:\n{expected_final_status}')
+    print(f'expected_compliance_status:\n{expected_compliance_status}')
     
-    if expected_final_status is not None:
+    if expected_compliance_status is None:
         
-        if expected_final_status != compliance:
-            
-            print(f'{expected_final_status} != {compliance}\nraising ConfigComplianceStatusIsNotAsExpectedException')
-            
-            raise ConfigComplianceStatusIsNotAsExpectedException
-        
-        else:
-            
-            print(f'{expected_final_status} == {compliance}')
-            
-    return {
-        "ResourceIsCompliant":compliance
-    }
+        return compliance
+    
+    else:
+        return {
+            "ComplianceIsAsExpected": expected_compliance_status == compliance
+        }

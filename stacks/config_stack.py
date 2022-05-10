@@ -336,7 +336,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
                             "Payload": {
                                 "ConfigEvent.$":"$.ConfigEvent",
-                                "ExpectedFinalStatusIsCompliant": None
+                                "ExpectedComplianceStatus": None
                             }
                         },
                         "ResultSelector": {
@@ -345,7 +345,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "GetResultsReportIsCompliantBoolean": {
                         "Type": "Task",
-                        "Next": "ChoiceIsComplaint",
+                        "Next": "PutEvaluations",
                         "ResultPath": "$.GetResultsReportIsCompliantBoolean",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -380,81 +380,55 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     "ResultsReportDoesNotYetExist": {
                         "Type":"Fail"
                     },
-                    "ChoiceIsComplaint": {
+                    "PutEvaluations": {
+                        "Type": "Task",
+                        "Next": "GetResourceConfigCompliancee",
+                        "ResultPath": "$.PutEvaluations",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_put_evaluations.function_name,
+                            "Payload": {
+                                "Compliance": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
+                                "ConfigResultToken.$":"$.ConfigEvent.resultToken",
+                                "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
+                                "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
+                            },
+                        },
+                        "ResultSelector": {"Payload.$": "$.Payload"},
+                    },
+                    "GetResourceConfigCompliancee":{
+                        "Type": "Task",
+                        "End":True,
+                        "ResultPath": "$.GetResourceConfigCompliancee",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
+                            "Payload": {
+                                "ConfigEvent.$":"$.ConfigEvent",
+                                "ExpectedComplianceStatus": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant"
+                            }
+                        },
+                        "ResultSelector": {
+                            "Payload.$": "$.Payload"
+                        },
+                    },
+                    "ChoiceComplianceStatusIsAsExpectede": {
                         "Type":"Choice",
-                        "Default":"PutEvaluationsIsCompliantFalse",
+                        "Default":"ComplianceStatusIsAsExpectedFalse",
                         "Choices":[
                             {
-                                "Variable":"$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
+                                "Variable":"$.GetResourceConfigCompliancee.Payload.ComplianceIsAsExpected",
                                 "BooleanEquals":True,
-                                "Next":"PutEvaluationsIsCompliantTrue"
+                                "Next":"ComplianceStatusIsAsExpectedTrue"
                             },
                         ]
                     },
-                    "PutEvaluationsIsCompliantFalse": {
-                        "Type": "Task",
-                        "Next": "GetResourceConfigComplianceCompliantFalse",
-                        "ResultPath": "$.PutEvaluationsIsCompliantFalse",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_put_evaluations.function_name,
-                            "Payload": {
-                                "Compliance": False,
-                                "ConfigResultToken.$":"$.ConfigEvent.resultToken",
-                                "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
-                                "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
-                            },
-                        },
-                        "ResultSelector": {"Payload.$": "$.Payload"},
+                    "ComplianceStatusIsAsExpectedTrue":{
+                        "Type":"Succeed"
                     },
-                    "GetResourceConfigComplianceCompliantFalse":{
-                        "Type": "Task",
-                        "End":True,
-                        "ResultPath": "$.GetResourceConfigComplianceCompliantFalse",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                            "Payload": {
-                                "ConfigEvent.$":"$.ConfigEvent",
-                                "ExpectedFinalStatusIsCompliant": False
-                            }
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                    },
-                    "PutEvaluationsIsCompliantTrue": {
-                        "Type": "Task",
-                        "Next": "GetResourceConfigComplianceCompliantTrue",
-                        "ResultPath": "$.PutEvaluationsIsCompliantTrue",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_put_evaluations.function_name,
-                            "Payload": {
-                                "Compliance": True,
-                                "ConfigResultToken.$":"$.ConfigEvent.resultToken",
-                                "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
-                                "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
-                            },
-                        },
-                        "ResultSelector": {"Payload.$": "$.Payload"},
-                    },
-                    "GetResourceConfigComplianceCompliantTrue":{
-                        "Type": "Task",
-                        "End":True,
-                        "ResultPath": "$.GetResourceConfigComplianceCompliantTrue",
-                        "Resource": "arn:aws:states:::lambda:invoke",
-                        "Parameters": {
-                            "FunctionName": self.lambda_get_resource_config_compliance.function_name,
-                            "Payload": {
-                                "ConfigEvent.$":"$.ConfigEvent",
-                                "ExpectedFinalStatusIsCompliant": True
-                            }
-                        },
-                        "ResultSelector": {
-                            "Payload.$": "$.Payload"
-                        },
-                    },
+                    "ComplianceStatusIsAsExpectedFalse":{
+                        "Type":"Fail"
+                    }
                 }
             })
         )
@@ -491,7 +465,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         #                     "FunctionName": self.lambda_get_resource_config_compliance.function_name,
         #                     "Payload": {
         #                         "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-        #                         "ExpectedFinalStatusIsCompliant": True
+        #                         "ExpectedComplianceStatus": True
 
         #                     }
         #                 },
@@ -569,7 +543,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         #                     "FunctionName": self.lambda_get_resource_config_compliance.function_name,
         #                     "Payload": {
         #                         "ConsumerMetadata.$":"$.ControlBrokerConsumerInputs.ConsumerMetadata",
-        #                         "ExpectedFinalStatusIsCompliant": False
+        #                         "ExpectedComplianceStatus": False
         #                     }
         #                 },
         #                 "ResultSelector": {
