@@ -7,15 +7,6 @@ from datetime import datetime
 sfn = boto3.client("stepfunctions")
 s3 = boto3.client("s3")
 
-def async_sfn(*, sfn_arn, input: dict):
-    try:
-        r = sfn.start_execution(stateMachineArn=sfn_arn, input=json.dumps(input))
-    except ClientError as e:
-        print(f"ClientError\n{e}")
-        raise
-    else:
-        print(f'no ClientError start_execution:\nsfn_arn:\n{sfn_arn}\ninput:\n{input}')
-        return r["executionArn"]
 
 def put_object(bucket,key,object_:dict):
     print(f'put_object\nbucket:\n{bucket}\nKey:\n{key}')
@@ -30,6 +21,61 @@ def put_object(bucket,key,object_:dict):
         raise
     else:
         return True
+
+class SimpleControlBrokerClient():
+    def __init__(self,*,
+        invoke_url,
+        input_bucket,
+        input_object:dict,
+    ):
+        
+        self.invoke_url = invoke_url
+        self.input_bucket = input_bucket
+        self.input_object = input_object
+        
+        
+    def put_input(self):
+        
+        put = put_object(
+            bucket=self.input_bucket,
+            key='SimpleControlBrokerClient-input.json',
+            object_ = self.input_object
+        )
+        
+    def invoke_endpoint(self):
+        
+        def get_host(*,full_invoke_url):
+            m = re.search('https://(.*)/.*',full_invoke_url)
+            return m.group(1)
+        
+        host = get_host(full_invoke_url=self.invoke_url)
+            
+        auth = BotoAWSRequestsAuth(
+            aws_host= host,
+            aws_region=region,
+            aws_service='execute-api'
+        )
+        
+        r = requests.post(
+            self.invoke_url,
+            auth = auth,
+            json = self.input_object
+        )
+        
+        print(f'headers:\n{dict(r.request.headers)}\n')
+        
+        content = json.loads(r.content)
+        
+        r = {
+            'StatusCode':r.status_code,
+            'Content': content
+        }
+        
+        print(f'\napigw formatted response:\n')
+        print(r)
+    
+        return r
+
 
 def lambda_handler(event, context):
 
@@ -69,42 +115,33 @@ def lambda_handler(event, context):
 
     # process
     
-    config_event_payload_bucket = os.environ["ConfigEventPayloadsBucket"]
+    invoked_by_key = f'{config_rule_name}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
 
-    print(f'procesing sfn\n{os.environ["ConfigEventProcessingSfnArn"]}')
+    invoke_url = os.environ['ControlBrokerInvokeUrl']
     
-    key = f'{event["configRuleName"]}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
+    input_analyzed = {
+        "Bucket":os.environ['ConfigEventsRawInputBucket'],
+        "Key":invoked_by_key
+    }
     
-    if not put_object(
-        bucket = config_event_payload_bucket,
-        key = key,
+    put_object(
+        bucket = input_analyzed['Bucket'],
+        key = input_analyzed['Key'],
         object_ = event
-    ):
-        return False
-    
-    config_event_metadata = {
-        "ResourceType":resource_type,
-        "ResourceId":resource_id,
-        "ConfigResultToken":result_token,
-        "ConfigRuleName": config_rule_name,
-    }
-    
-    control_broker_consumer_inputs = {
-        "ControlBrokerConsumerInputs":{
-            "InputType":"ConfigEvent",
-            "Bucket": config_event_payload_bucket,
-            "InputKeys":[key],
-            "ConsumerMetadata": config_event_metadata,
-        }
-    }
-    
-    print(f'control_broker_consumer_inputs\n{control_broker_consumer_inputs}')
-
-    processed = async_sfn(
-        sfn_arn=os.environ["ConfigEventProcessingSfnArn"],
-        input=control_broker_consumer_inputs
     )
     
-    print(f'processed by sfn:\n{processed}')
+    cb_input_object = {
+        "Context":{
+            "EnvironmentEvaluation":"Prod"
+        },
+        "Input": input_analyzed
+    }
     
-    return True
+    s = SimpleControlBrokerClient(
+        invoke_url = invoke_url,
+        input_bucket = input_analyzed['Bucket'],
+        input_object = cb_input_object
+    )
+    
+    s.put_input()
+    response = s.invoke_endpoint()

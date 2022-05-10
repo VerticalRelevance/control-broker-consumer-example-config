@@ -32,6 +32,24 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         self.control_broker_apigw_url = control_broker_apigw_url
         self.control_broker_input_reader_arns = control_broker_input_reader_arns
         
+        self.layers = {
+            'requests': aws_lambda_python_alpha.PythonLayerVersion(self,
+                    "requests",
+                    entry="./supplementary_files/lambda_layers/requests",
+                    compatible_runtimes=[
+                        aws_lambda.Runtime.PYTHON_3_9
+                    ]
+                ),
+            'aws_requests_auth':aws_lambda_python_alpha.PythonLayerVersion(
+                    self,
+                    "aws_requests_auth",
+                    entry="./supplementary_files/lambda_layers/aws_requests_auth",
+                    compatible_runtimes=[
+                        aws_lambda.Runtime.PYTHON_3_9
+                    ]
+                ),
+        }
+        
         self.demo_change_tracked_by_config()
         self.utils()
         self.config_event_processing_sfn_lambdas()
@@ -70,9 +88,9 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         
     def utils(self):
         
-        self.bucket_config_event_payloads = aws_s3.Bucket(
+        self.bucket_config_events_raw_inputs = aws_s3.Bucket(
             self,
-            "ConfigEventPayloads",
+            "ConfigEventsRawInput",
             block_public_access=aws_s3.BlockPublicAccess.BLOCK_ALL,
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
@@ -246,8 +264,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         
         when no Compliance details yet available
         
-        perhaps comparison to initial is not required, simply assert that 
-        final Compliance status is equal to expected_final_status
+        perhaps comparison to initial is not required,
+        simply assert that final Compliance status is equal to expected_final_status
         
         """
 
@@ -543,29 +561,23 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             code=aws_lambda.Code.from_asset(str(paths.LAMBDA_FUNCTIONS / 'invoked_by_config')),
             handler='lambda_function.lambda_handler',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            environment=dict(
-                ConfigEventProcessingSfnArn=self.sfn_config_event_processing.attr_arn,
-                ConfigEventPayloadsBucket=self.bucket_config_event_payloads.bucket_name,
-            ),
+            environment={
+                "ControlBrokerInvokeUrl": self.control_broker_apigw_url,
+                "ConfigEventsRawInputBucket":self.bucket_config_events_raw_inputs.bucket_name
+            },
+            layers=[
+                self.layers['requests'],
+                self.layers['aws_requests_auth']
+            ]
         )
         
-        self.lambda_invoked_by_config.role.add_to_policy(
-            aws_iam.PolicyStatement(
-                actions=[
-                    "states:StartExecution",
-                ],
-                resources=[
-                    self.sfn_config_event_processing.attr_arn,
-                ],
-            )
-        )
         self.lambda_invoked_by_config.role.add_to_policy(
             aws_iam.PolicyStatement(
                 actions=[
                     "s3:PutObject",
                 ],
                 resources=[
-                    self.bucket_config_event_payloads.arn_for_objects("*"),
+                    self.bucket_config_events_raw_inputs.arn_for_objects("*"),
                 ],
             )
         )
