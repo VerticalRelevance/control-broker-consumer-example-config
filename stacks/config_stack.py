@@ -151,8 +151,16 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             timeout=Duration.seconds(60),
             memory_size=1024,
             code=aws_lambda.Code.from_asset(
-                "./supplementary_files/handlers_stack/get_object"
+                "./supplementary_files/lambdas/get_object"
             ),
+        )
+        self.lambda_sign_apigw_request.role.add_to_policy(
+            aws_iam.PolicyStatement(
+                actions=[
+                    "s3:GetObject",
+                ],
+                resources=["*"],
+            )
         )
         
         # put evaluations
@@ -301,7 +309,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "GetResourceConfigComplianceInitial":{
                         "Type": "Task",
-                        "Next":"CheckResultsReportExists", 
+                        "Next":"GetResultsReportIsCompliantBoolean", 
                         "ResultPath": "$.GetResourceConfigComplianceInitial",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -323,7 +331,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_get_object.function_name,
                             "Payload": {
-                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.Raw",
+                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.OutputHandlers[0].AccessPointArn",
                                 "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
                             }
                         },
