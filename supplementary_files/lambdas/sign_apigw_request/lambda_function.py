@@ -56,22 +56,11 @@ def lambda_handler(event,context):
     
     invoked_by_key = f'{config_rule_name}-{resource_type}-{resource_id}-{invoking_event["notificationCreationTime"]}'
 
-    input_analyzed = {
-        "Bucket":os.environ['ConfigEventsRawInputBucket'],
-        "Key":invoked_by_key
-    }
-    
-    put_object(
-        bucket = input_analyzed['Bucket'],
-        key = input_analyzed['Key'],
-        object_ = event
-    )
-    
     cb_input_object = {
         "Context":{
             "EnvironmentEvaluation":"Prod",
         },
-        "Input": input_analyzed
+        "Input": event
     }
     
     def get_host(full_invoke_url):

@@ -7,11 +7,11 @@ from stacks.config_stack import ControlBrokerConsumerExampleConfigStack
 
 app = cdk.App()
 
-ControlBrokerConsumerExampleConfigStack(app, "CBConsumerConfig",
+expecting_control_broker_version = "0.10.0"
 
+ControlBrokerConsumerExampleConfigStack(app, "CBConsumerConfig",
     env=cdk.Environment(account=os.getenv('CDK_DEFAULT_ACCOUNT'), region=os.getenv('CDK_DEFAULT_REGION')),
     control_broker_apigw_url=app.node.try_get_context("control-broker/apigw-url"),
-
 )
 
 app.synth()
