@@ -328,7 +328,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Retry": [
                             {
                                 "ErrorEquals": [
-                                    "ObjectDoesNotExistException"
+                                    "StatusCodeNot200Exception"
                                 ],
                                 "IntervalSeconds": 1,
                                 "MaxAttempts": 8,
