@@ -132,47 +132,22 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             )
         )
 
-        # get object
+        #requests get
         
-        self.lambda_get_object = aws_lambda.Function(
+        self.lambda_requests_get = aws_lambda.Function(
             self,
-            "GetObject",
+            "RequestsGet",
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             handler="lambda_function.lambda_handler",
             timeout=Duration.seconds(60),
             memory_size=1024,
             code=aws_lambda.Code.from_asset(
-                "./supplementary_files/lambdas/get_object"
+                "./supplementary_files/lambdas/requests_get"
             ),
+            layers=[
+                self.layers['requests'],
+            ]
         )
-        
-        # s3 select
-        
-        # self.lambda_s3_select = aws_lambda.Function(
-        #     self,
-        #     "S3Select",
-        #     runtime=aws_lambda.Runtime.PYTHON_3_9,
-        #     handler="lambda_function.lambda_handler",
-        #     timeout=Duration.seconds(60),
-        #     memory_size=1024,
-        #     code=aws_lambda.Code.from_asset(
-        #         "./supplementary_files/lambdas/s3_select"
-        #     ),
-        # )
-       
-        # self.lambda_s3_select.role.add_to_policy(
-        #     aws_iam.PolicyStatement(
-        #         actions=[
-        #             "s3:GetObject",
-        #             "s3:GetBucket",
-        #             "s3:List*",
-        #         ],
-        #         resources=[
-        #             self.bucket_config_event_raw_inputs.bucket_arn,
-        #             self.bucket_config_event_raw_inputs.arn_for_objects("*"),
-        #         ],
-        #     )
-        # )
        
         # put evaluations
         
@@ -217,6 +192,8 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                 resources=["*"]
             )
         )
+        
+        
 
     def config_event_processing_sfn(self):
         
@@ -236,7 +213,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             aws_iam.PolicyStatement(
                 actions=["lambda:InvokeFunction"],
                 resources=[
-                    self.lambda_get_object.function_arn,
+                    self.lambda_requests_get.function_arn,
                     self.lambda_put_evaluations.function_arn,
                     self.lambda_get_resource_config_compliance.function_arn,
                     self.lambda_sign_apigw_request.function_arn,
@@ -320,7 +297,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                     },
                     "GetResourceConfigComplianceInitial":{
                         "Type": "Task",
-                        "Next":"GetResultsReportIsCompliantBoolean", 
+                        "Next":"GetIsCompliant", 
                         "ResultPath": "$.GetResourceConfigComplianceInitial",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
@@ -334,10 +311,10 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             "Payload.$": "$.Payload"
                         },
                     },
-                    "GetResultsReportIsCompliantBoolean": {
+                    "GetIsCompliant": {
                         "Type": "Task",
                         "Next": "PutEvaluations",
-                        "ResultPath": "$.GetResultsReportIsCompliantBoolean",
+                        "ResultPath": "$.GetIsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
                             "FunctionName": self.lambda_get_object.function_name,
@@ -379,7 +356,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "Parameters": {
                             "FunctionName": self.lambda_put_evaluations.function_name,
                             "Payload": {
-                                "Compliance.$": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
+                                "Compliance.$": "$.GetIsCompliant.Payload.EvalEngineLambdalith.Evaluation.IsCompliant",
                                 "ConfigResultToken.$":"$.ConfigEvent.resultToken",
                                 "ResourceId.$":"$.InvokingEvent.configurationItem.resourceId",
                                 "ResourceType.$":"$.InvokingEvent.configurationItem.resourceType",
@@ -396,7 +373,7 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                             "FunctionName": self.lambda_get_resource_config_compliance.function_name,
                             "Payload": {
                                 "ConfigEvent.$":"$.ConfigEvent",
-                                "ExpectedComplianceStatus.$": "$.GetResultsReportIsCompliantBoolean.Payload.EvalEngineLambdalith.Evaluation.IsCompliant"
+                                "ExpectedComplianceStatus.$": "$.GetIsCompliant.Payload.EvalEngineLambdalith.Evaluation.IsCompliant"
                             }
                         },
                         "ResultSelector": {
