@@ -317,10 +317,9 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
                         "ResultPath": "$.GetIsCompliant",
                         "Resource": "arn:aws:states:::lambda:invoke",
                         "Parameters": {
-                            "FunctionName": self.lambda_get_object.function_name,
-                            "Payload": {
-                                "Bucket.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Buckets.OutputHandlers[0].Bucket",
-                                "Key.$":"$.SignApigwRequest.Payload.Content.Response.ResultsReport.Key",
+                            "FunctionName": self.lambda_requests_get.function_name,
+                            "Payload":{
+                                "Url.$":"$.SignApigwRequest.Payload.Response.ControlBrokerEvaluation.OutputHandlers.CloudFormationOPA.PresignedUrl",
                             }
                         },
                         "ResultSelector": {

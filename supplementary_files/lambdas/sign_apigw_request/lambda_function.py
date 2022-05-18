@@ -99,4 +99,4 @@ def lambda_handler(event,context):
     if status_code != 200:
         return False
     
-    return apigw_formatted_response
+    return cb_endpoint_response
