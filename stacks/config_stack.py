@@ -25,12 +25,10 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
         scope: Construct,
         construct_id: str,
         control_broker_apigw_url:str,
-        control_broker_input_reader_arns:List[str],
         **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
         self.control_broker_apigw_url = control_broker_apigw_url
-        self.control_broker_input_reader_arns = control_broker_input_reader_arns
         
         self.layers = {
             'requests': aws_lambda_python_alpha.PythonLayerVersion(self,
@@ -98,13 +96,6 @@ class ControlBrokerConsumerExampleConfigStack(Stack):
             auto_delete_objects=True,
         )
         
-        # Give read permission to the control broker on the Consumer Inputs we store
-        # and pass to the control broker
-        for control_broker_principal_arn in self.control_broker_input_reader_arns:
-            self.bucket_config_event_raw_inputs.grant_read(
-                aws_iam.ArnPrincipal(control_broker_principal_arn)
-            )
-    
     def config_event_processing_sfn_lambdas(self):
 
         # sign apigw request
