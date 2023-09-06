@@ -28,6 +28,6 @@
       "aws",
       "aws-cn"
     ],
-    "control-broker/apigw-url":"https://b9djl10ela.execute-api.us-east-1.amazonaws.com/ConfigEvent"
+    "control-broker/apigw-url":"https://MY_API_ID.execute-api.us-east-1.amazonaws.com/ConfigEvent"
   }
 }
